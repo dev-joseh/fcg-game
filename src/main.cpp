@@ -76,8 +76,9 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
-
-
+// J - Função do crosshair + HUD
+void CrosshairRendering(GLFWwindow* window);
+void HUDRendering(GLFWwindow* window);
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
@@ -134,10 +135,6 @@ bool g_ShowInfoText = true;
 
 // Variáveis que definem um programa de GPU (shaders). Veja função LoadShadersFromFiles().
 GLuint g_GpuProgramID = 0;
-
-
-
-
 
 int main()
 {
@@ -307,16 +304,11 @@ int main()
             g_CamDistanceZ -= (velocidade*cos_g_CameraPhi * sin_g_CameraTheta);
         }
 
-
-
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
         // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
         glm::vec4 camera_position_c  = glm::vec4(g_CamDistanceX,g_CamDistanceY,g_CamDistanceZ,1.0f); // Ponto "c", centro da câmera
         glm::vec4 camera_view_vector = glm::vec4(-x, -y, -z, 0.0); // Vetor "view", sentido para onde a câmera está virada
         glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
-
-
-
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slides 2-14, 184-190 e 236-242 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
@@ -507,22 +499,22 @@ int main()
         // alterar o mesmo. Isso evita bugs.
         glBindVertexArray(0);
 
+        // ---------- HUD + Crosshair ----------
+        glDisable(GL_DEPTH_TEST); // Desliga o Z-buffer
+
+        CrosshairRendering(window);
+        HUDRendering(window);
+
+        glEnable(GL_DEPTH_TEST);  // Liga o Z-buffer novamente
+
         // Pegamos um vértice com coordenadas de modelo (0.5, 0.5, 0.5, 1) e o
         // passamos por todos os sistemas de coordenadas armazenados nas
         // matrizes the_model, the_view, e the_projection; e escrevemos na tela
         // as matrizes e pontos resultantes dessas transformações.
         glm::vec4 p_model(0.5f, 0.5f, 0.5f, 1.0f);
-        TextRendering_ShowModelViewProjection(window, the_projection, the_view, the_model, p_model);
 
-        // Imprimimos na tela os ângulos de Euler que controlam a rotação do
-        // terceiro cubo.
-        TextRendering_ShowEulerAngles(window);
+        //TextRendering_ShowProjection(window);
 
-        // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
-        TextRendering_ShowProjection(window);
-
-        // Imprimimos na tela informação sobre o número de quadros renderizados
-        // por segundo (frames per second).
         TextRendering_ShowFramesPerSecond(window);
 
         // O framebuffer onde OpenGL executa as operações de renderização não
@@ -1291,6 +1283,33 @@ void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
 
     TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
 }
+
+// J - Renderiza o Crosshair na tela
+void CrosshairRendering(GLFWwindow* window)
+{
+    if ( !g_ShowInfoText )
+        return;
+
+    TextRendering_PrintString(window, "+", -0.01f, -0.01f, 3.0f);
+}
+
+// J - HUD
+void HUDRendering(GLFWwindow* window)
+{
+    if ( !g_ShowInfoText )
+        return;
+
+    // Desenha o tempo passado desde o início na tela
+    char tempo[20];
+    snprintf(tempo, 20, "TIME: %.0f S", (float)glfwGetTime());
+
+    // Desenha as informações do HUD na tela
+    TextRendering_PrintString(window, tempo, -0.90f, 0.90f, 1.5f);
+    TextRendering_PrintString(window, "HEALTH: #", -0.90f, -0.90f, 1.5f);
+    TextRendering_PrintString(window, "AMMO: ##", -0.90f, -0.850f, 1.5f);
+    TextRendering_PrintString(window, "WAVE: #", -0.90f, -0.80f, 1.5f);
+}
+
 
 // set makeprg=cd\ ..\ &&\ make\ run\ >/dev/null
 // vim: set spell spelllang=pt_br :
