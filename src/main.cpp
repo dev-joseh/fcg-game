@@ -41,7 +41,6 @@
 
 // Headers da biblioteca para carregar modelos obj
 #include <tiny_obj_loader.h>
-
 #include <stb_image.h>
 
 // Headers locais, definidos na pasta "include/"
@@ -201,13 +200,12 @@ float g_CameraDistance = 3.5f; // Distância da câmera para a origem
 // ------ Variáveis para movimento do jogador
 float delta_t;
 
-glm::vec4 camera_c  = glm::vec4(0.0f,0.0f,0.0f,0.0f);
-
 bool tecla_W_pressionada = false;
 bool tecla_A_pressionada = false;
 bool tecla_S_pressionada = false;
 bool tecla_D_pressionada = false;
-bool tecla_SHIFT_pressionada = false;
+bool tecla_SPACE_pressionada = false; // Pulo
+bool tecla_SHIFT_pressionada = false; // Corrida
 
 float g_Theta = 3.141592f / 4;
 float g_Phi = 3.141592f / 6;
@@ -316,9 +314,10 @@ int main(int argc, char* argv[])
     LoadShadersFromFiles();
 
     // Carregamos duas imagens para serem utilizadas como textura
-    LoadTextureImage("../../data/tc-earth_nightmap_citylights.gif"); // TextureImage1
-    LoadTextureImage("../../data/grass.jpg");                        // TextureImage2
-    LoadTextureImage("../../data/ceu.hdr");                          // TextureImage3
+    LoadTextureImage("../../data/tc-earth_nightmap_citylights.gif"); // TextureImage0
+    LoadTextureImage("../../data/grass.jpg");                        // TextureImage1
+    LoadTextureImage("../../data/ceu.hdr");                          // TextureImage2
+    LoadTextureImage("../../data/Flashlight/flashlight_D.jpg");      // TextureImage3
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/sphere.obj");
@@ -332,6 +331,10 @@ int main(int argc, char* argv[])
     ObjModel planemodel("../../data/plane.obj");
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
+
+    ObjModel flashlightmodel("../../data/Flashlight/flashlight.obj");
+    ComputeNormals(&flashlightmodel);
+    BuildTrianglesAndAddToVirtualScene(&flashlightmodel);
 
     if ( argc > 1 )
     {
@@ -352,11 +355,11 @@ int main(int argc, char* argv[])
 
     // Definir velocidade e tempo para câmera livre
     float speed, speed_base = 3.0f; // Velocidade da câmera
+    float Yspeed, gravity = 3.0f; // Aceleração da queda
     float prev_time = (float)glfwGetTime();
 
     // Variáveis que definem a posição do jogador
     glm::vec4 jpos_atual = glm::vec4(-5.0f,0.0f,0.0f,1.0f);
-    glm::vec4 jpos_anterior = glm::vec4(-5.0f,0.0f,0.0f,1.0f);
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -413,26 +416,36 @@ int main(int argc, char* argv[])
          // Realiza a movimentação do jogador, atualizando sua posição anterior e atual
         if (tecla_W_pressionada)
         {
-            jpos_anterior = jpos_atual;
-            jpos_atual += -vw * (float)(speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f)); // Fixa o jogador no chão
+            jpos_atual += -vw * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f)); // Fixa o jogador no chão
         }
         if (tecla_S_pressionada)
         {
-            jpos_anterior = jpos_atual;
-            jpos_atual += vw * (float)(speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            jpos_atual += vw * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
         }
         if (tecla_D_pressionada)
         {
-            jpos_anterior = jpos_atual;
-            jpos_atual += vu * (float)(speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            jpos_atual += vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
         }
         if (tecla_A_pressionada)
         {
-            jpos_anterior = jpos_atual;
-            jpos_atual += -vu * (float)(speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            jpos_atual += -vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
         }
 
+        // Gravidade
+        if (jpos_atual[1] > 0.0f)
+        {
+            Yspeed -= gravity * delta_t;
+        }
+        else
+            Yspeed = 0.0f;
+
         // Pulo
+        if (tecla_SPACE_pressionada && jpos_atual[1] <= 0.0f)
+        {
+            Yspeed = speed_base;
+        }
+
+        jpos_atual[1] += Yspeed*delta_t;
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slides 2-14, 184-190 e 236-242 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
@@ -478,6 +491,7 @@ int main(int argc, char* argv[])
         #define SPHERE 0
         #define BUNNY  1
         #define PLANE  2
+        #define FLASHLIGHT  3
 
         // -- Skybox --
         glDisable(GL_DEPTH_TEST);
@@ -491,19 +505,26 @@ int main(int argc, char* argv[])
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
 
+        // -- Chão --
+        model = Matrix_Translate(0.0f,-1.1f,0.0f)
+              * Matrix_Scale(100.0f,1.0f,100.0f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, PLANE);
+        DrawVirtualObject("the_plane");
+
+        // Desenhamos a lanterna
+        model = Matrix_Translate(0.0f,1.1f,0.0f)
+              * Matrix_Scale(0.01f,0.01f,0.01f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, FLASHLIGHT);
+        DrawVirtualObject("the_light");
+
         // Desenhamos o modelo do coelho
         model = Matrix_Translate(1.0f,0.0f,0.0f)
               * Matrix_Rotate_X(g_AngleX + (float)glfwGetTime() * 0.1f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, BUNNY);
         DrawVirtualObject("the_bunny");
-
-        // Desenhamos o plano do chão
-        model = Matrix_Translate(0.0f,-1.1f,0.0f)
-              * Matrix_Scale(100.0f,1.0f,100.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, PLANE);
-        DrawVirtualObject("the_plane");
 
         // Imprimimos na tela os ângulos de Euler que controlam a rotação do
         // terceiro cubo.
@@ -1198,6 +1219,15 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_SHIFT_pressionada = true;
         else if (action == GLFW_RELEASE)
             tecla_SHIFT_pressionada = false;
+        else if (action == GLFW_REPEAT);
+    }
+
+    if (key == GLFW_KEY_SPACE)
+    {
+        if (action == GLFW_PRESS)
+            tecla_SPACE_pressionada = true;
+        else if (action == GLFW_RELEASE)
+            tecla_SPACE_pressionada = false;
         else if (action == GLFW_REPEAT);
     }
 

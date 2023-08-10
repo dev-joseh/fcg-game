@@ -22,6 +22,8 @@ uniform mat4 projection;
 #define SPHERE 0
 #define BUNNY  1
 #define PLANE  2
+#define FLASHLIGHT  3
+
 uniform int object_id;
 
 // Parâmetros da axis-aligned bounding box (AABB) do modelo
@@ -79,13 +81,6 @@ void main()
         // A esfera que define a projeção deve estar centrada na posição
         // "bbox_center" definida abaixo.
 
-        // Você deve utilizar:
-        //   função 'length( )' : comprimento Euclidiano de um vetor
-        //   função 'atan( , )' : arcotangente. Veja https://en.wikipedia.org/wiki/Atan2.
-        //   função 'asin( )'   : seno inverso.
-        //   constante M_PI
-        //   variável position_model
-
         vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
 
         vec4 r = position_model - bbox_center;
@@ -122,6 +117,11 @@ void main()
         U = (position_model.x-a.x)/(b.x-a.x);
         V = (position_model.y-a.y)/(b.y-a.y);
     }
+    else if ( object_id == FLASHLIGHT )
+    {
+        U = texcoords.x;
+        V = texcoords.y;
+    }
     else if ( object_id == PLANE )
     {
         vec2 texcoordsRepetidas = fract(texcoords*20); // Coordenadas repetidas do plano de chao
@@ -131,15 +131,12 @@ void main()
         V = texcoordsRepetidas[1];
     }
 
-
     // Textura clara
-    vec3 Kd0 = texture(TextureImage0, vec2(U,V)).rgb;
-
+    vec3 Kd0 = texture(TextureImage3, vec2(U,V)).rgb;
     // Equação de Iluminação
     float lambert = max(0,dot(n,l));
-
     // Textura escura
-    vec3 Kd1 = texture(TextureImage0, vec2(U,V)).rgb;
+    vec3 Kd1 = texture(TextureImage3, vec2(U,V)).rgb;
 
     // A cor da textura 2 apenas aparece quando lambert é negativo, portanto (1 - lambert)
     if( object_id == SPHERE )
@@ -148,6 +145,8 @@ void main()
         color.rgb = Kd0 * (lambert+0.01) + Kd1 * (1-lambert);
     else if( object_id == PLANE )
         color.rgb = texture(TextureImage1, vec2(U,V)).rgb;
+    else if( object_id == FLASHLIGHT )
+        color.rgb = vec3(0, 0, 0).rgb;
 
     // NOTE: Se você quiser fazer o rendering de objetos transparentes, é
     // necessário:
