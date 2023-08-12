@@ -23,6 +23,7 @@ uniform mat4 projection;
 #define BUNNY  1
 #define PLANE  2
 #define FLASHLIGHT  3
+#define CROSSHAIR  4
 
 uniform int object_id;
 
@@ -35,6 +36,7 @@ uniform sampler2D TextureImage0;
 uniform sampler2D TextureImage1;
 uniform sampler2D TextureImage2;
 uniform sampler2D TextureImage3;
+uniform sampler2D crosshairTexture;
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec4 color;
@@ -130,6 +132,14 @@ void main()
         U = texcoordsRepetidas[0];
         V = texcoordsRepetidas[1];
     }
+    else if ( object_id == CROSSHAIR )
+    {
+        vec2 texcoordsRepetidas = fract(texcoords*20); // Coordenadas repetidas do plano de chao
+
+        // Coordenadas de textura do plano, obtidas do arquivo OBJ.
+        U = texcoordsRepetidas[0];
+        V = texcoordsRepetidas[1];
+    }
 
     // Textura clara
     vec3 Kd0 = texture(TextureImage3, vec2(U,V)).rgb;
@@ -147,6 +157,8 @@ void main()
         color.rgb = texture(TextureImage1, vec2(U,V)).rgb;
     else if( object_id == FLASHLIGHT )
         color.rgb = vec3(0, 0, 0).rgb;
+    else if( object_id == CROSSHAIR )
+        color.rgb = texture(crosshairTexture, vec2(U,V)).rgb;
 
     // NOTE: Se você quiser fazer o rendering de objetos transparentes, é
     // necessário:

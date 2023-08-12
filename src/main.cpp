@@ -105,6 +105,13 @@ struct ObjModel
     }
 };
 
+typedef struct jogador
+{
+    // Variáveis que definem a posição do jogador
+    glm::vec4 pos;
+    int vidas;
+} JOGADOR;
+
 
 // Declaração de funções utilizadas para pilha de matrizes de modelagem.
 void PushMatrix(glm::mat4 M);
@@ -138,7 +145,6 @@ void TextRendering_PrintMatrixVectorProductDivW(GLFWwindow* window, glm::mat4 M,
 // Funções abaixo renderizam como texto na janela OpenGL algumas matrizes e
 // outras informações do programa. Definidas após main().
 void TextRendering_ShowModelViewProjection(GLFWwindow* window, glm::mat4 projection, glm::mat4 view, glm::mat4 model, glm::vec4 p_model);
-void TextRendering_ShowEulerAngles(GLFWwindow* window);
 void TextRendering_ShowProjection(GLFWwindow* window);
 void TextRendering_ShowFramesPerSecond(GLFWwindow* window);
 
@@ -150,6 +156,10 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+
+// FUNÇÕES CRIADAS:
+void centerMouse(GLFWwindow* window, int screenWidth, int screenHeight); // Centraliza o mouse na tela
+void TextRendering_ShowSecondsEllapsed(GLFWwindow* window); // Mostra quandos segundos se passaram
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
@@ -211,6 +221,8 @@ float g_Theta = 3.141592f / 4;
 float g_Phi = 3.141592f / 6;
 
 double g_LastCursorPosX, g_LastCursorPosY;
+// Usada para verificar se o mouse está centralizado.
+bool cursorCentered;
 
 // Variáveis que controlam rotação do antebraço
 float g_ForearmAngleZ = 0.0f;
@@ -279,13 +291,13 @@ int main(int argc, char* argv[])
     // pressionar alguma tecla do teclado ...
     glfwSetKeyCallback(window, KeyCallback);
     // ... ou clicar os botões do mouse ...
-    glfwSetMouseButtonCallback(window, MouseButtonCallback);
+    // glfwSetMouseButtonCallback(window, MouseButtonCallback);
     // ... ou movimentar o cursor do mouse em cima da janela ...
     glfwSetCursorPosCallback(window, CursorPosCallback);
-    // Inicializa variáveis g_LastCursorPosX e g_LastCursorPosY
-    glfwGetCursorPos(window, &g_LastCursorPosX, &g_LastCursorPosY);
-    // ... ou rolar a "rodinha" do mouse.
-    glfwSetScrollCallback(window, ScrollCallback);
+    // Centraliza a posição do mouse na tela
+    centerMouse(window, 1200, 800);
+    // Esconde o cursor do mouse equanto estiver dentro da tela
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // Indicamos que as chamadas OpenGL deverão renderizar nesta janela
     glfwMakeContextCurrent(window);
@@ -318,6 +330,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/grass.jpg");                        // TextureImage1
     LoadTextureImage("../../data/ceu.hdr");                          // TextureImage2
     LoadTextureImage("../../data/Flashlight/flashlight_D.jpg");      // TextureImage3
+    LoadTextureImage("../../data/CrossHair.png");                    // TextureImage4
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/sphere.obj");
@@ -345,6 +358,12 @@ int main(int argc, char* argv[])
     // Inicializamos o código para renderização de texto.
     TextRendering_Init();
 
+
+    // ------------------------------------------- CROSSHAIR
+
+
+    // ----------------------------------------------- CROSSHAIR
+
     // Habilitamos o Z-buffer. Veja slides 104-116 do documento Aula_09_Projecoes.pdf.
     glEnable(GL_DEPTH_TEST);
 
@@ -353,18 +372,18 @@ int main(int argc, char* argv[])
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
+    // Definimos a posição inicial do jogador e a quantidade de vidas
+    JOGADOR jogador = {{0.0f, 2.0f, 0.0f, 1.0f},3};
+
     // Definir velocidade e tempo para câmera livre
     float speed, speed_base = 3.0f; // Velocidade da câmera
     float Yspeed, gravity = 3.0f; // Aceleração da queda
     float prev_time = (float)glfwGetTime();
 
-    // Variáveis que definem a posição do jogador
-    glm::vec4 jpos_atual = glm::vec4(-5.0f,0.0f,0.0f,1.0f);
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
-
         // Variáveis de tempo
         float current_time = (float)glfwGetTime();
         delta_t = current_time - prev_time;
@@ -396,7 +415,6 @@ int main(int argc, char* argv[])
         float vz = cos(g_CameraPhi)*cos(g_CameraTheta);
         float vx = cos(g_CameraPhi)*sin(g_CameraTheta);
 
-
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
         // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
         // glm::vec4 camera_look        =  // Direção para onde a câmera estará olhando
@@ -416,23 +434,23 @@ int main(int argc, char* argv[])
          // Realiza a movimentação do jogador, atualizando sua posição anterior e atual
         if (tecla_W_pressionada)
         {
-            jpos_atual += -vw * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f)); // Fixa o jogador no chão
+            jogador.pos += -vw * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f)); // Fixa o jogador no chão
         }
         if (tecla_S_pressionada)
         {
-            jpos_atual += vw * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            jogador.pos += vw * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
         }
         if (tecla_D_pressionada)
         {
-            jpos_atual += vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            jogador.pos += vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
         }
         if (tecla_A_pressionada)
         {
-            jpos_atual += -vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            jogador.pos += -vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
         }
 
         // Gravidade
-        if (jpos_atual[1] > 0.0f)
+        if (jogador.pos[1] > 0.0f)
         {
             Yspeed -= gravity * delta_t;
         }
@@ -440,16 +458,16 @@ int main(int argc, char* argv[])
             Yspeed = 0.0f;
 
         // Pulo
-        if (tecla_SPACE_pressionada && jpos_atual[1] <= 0.0f)
+        if (tecla_SPACE_pressionada && jogador.pos[1] <= 0.0f)
         {
             Yspeed = speed_base;
         }
 
-        jpos_atual[1] += Yspeed*delta_t;
+        jogador.pos[1] += Yspeed*delta_t;
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slides 2-14, 184-190 e 236-242 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
-        glm::mat4 view = Matrix_Camera_View(jpos_atual, camera_view_vector, vv);
+        glm::mat4 view = Matrix_Camera_View(jogador.pos, camera_view_vector, vv);
 
         // Agora computamos a matriz de Projeção.
         glm::mat4 projection;
@@ -497,7 +515,7 @@ int main(int argc, char* argv[])
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
 
-        model = Matrix_Translate(jpos_atual[0], jpos_atual[1], jpos_atual[2]);
+        model = Matrix_Translate(jogador.pos[0], jogador.pos[1], jogador.pos[2]);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, SPHERE);
         DrawVirtualObject("the_sphere");
@@ -506,18 +524,23 @@ int main(int argc, char* argv[])
         glEnable(GL_DEPTH_TEST);
 
         // -- Chão --
-        model = Matrix_Translate(0.0f,-1.1f,0.0f)
-              * Matrix_Scale(100.0f,1.0f,100.0f);
+        model = Matrix_Translate(0.0f, -1.4f, 0.0f)
+              * Matrix_Scale(350.0f,1.0f,350.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
         DrawVirtualObject("the_plane");
 
         // Desenhamos a lanterna
-        model = Matrix_Translate(0.0f,1.1f,0.0f)
-              * Matrix_Scale(0.01f,0.01f,0.01f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, FLASHLIGHT);
-        DrawVirtualObject("the_light");
+        model = Matrix_Translate(jogador.pos[0] + vx*0.5f, jogador.pos[1] + vy*0.5f, jogador.pos[2] + vz*0.5f)
+            * Matrix_Scale(0.01f,0.01f,0.01f);
+            PushMatrix(model);
+                model *= Matrix_Translate(0.1f, 0.1f, 0.1f)
+                      *  Matrix_Rotate_X(-g_CameraPhi)
+                      *  Matrix_Rotate_Y(g_CameraTheta);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, FLASHLIGHT);
+                DrawVirtualObject("the_light");
+            PopMatrix(model);
 
         // Desenhamos o modelo do coelho
         model = Matrix_Translate(1.0f,0.0f,0.0f)
@@ -526,9 +549,14 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, BUNNY);
         DrawVirtualObject("the_bunny");
 
-        // Imprimimos na tela os ângulos de Euler que controlam a rotação do
-        // terceiro cubo.
-        TextRendering_ShowEulerAngles(window);
+
+        // ------------------------------------- CrossHair
+
+
+
+        // ------------------------------------- CrossHair
+
+
 
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
         TextRendering_ShowProjection(window);
@@ -536,6 +564,9 @@ int main(int argc, char* argv[])
         // Imprimimos na tela informação sobre o número de quadros renderizados
         // por segundo (frames per second).
         TextRendering_ShowFramesPerSecond(window);
+
+        // Imprimimos na tela quandos segundos se passaram desde o início
+        TextRendering_ShowSecondsEllapsed(window);
 
         // O framebuffer onde OpenGL executa as operações de renderização não
         // é o mesmo que está sendo mostrado para o usuário, caso contrário
@@ -1117,19 +1148,31 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
     }
 }
 
+void centerMouse(GLFWwindow* window, int screenWidth, int screenHeight) {
+    glfwSetCursorPos(window, screenWidth / 2.0, screenHeight / 2.0);
+    cursorCentered = true;
+}
+
 // Função callback chamada sempre que o usuário movimentar o cursor do mouse em
 // cima da janela OpenGL.
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 {
+    if (cursorCentered) {
+        cursorCentered = false;
+        g_LastCursorPosX = xpos;
+        g_LastCursorPosY = ypos;
+        return;
+    }
+
     // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
+
     float dx = xpos - g_LastCursorPosX;
     float dy = ypos - g_LastCursorPosY;
-    if(g_LeftMouseButtonPressed)
-    {
+
+
     // Atualizamos parâmetros da câmera com os deslocamentos
     g_CameraTheta -= 0.003f*dx;
     g_CameraPhi   -= 0.003f*dy;
-    }
 
     // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
     float phimax = 3.141592f/2;
@@ -1145,37 +1188,21 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
     // cursor como sendo a última posição conhecida do cursor.
     g_LastCursorPosX = xpos;
     g_LastCursorPosY = ypos;
+
+    centerMouse(window, 1200, 800);
 }
 
 
 // Função callback chamada sempre que o usuário movimenta a "rodinha" do mouse.
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 {
-    // Atualizamos a distância da câmera para a origem utilizando a
-    // movimentação da "rodinha", simulando um ZOOM.
-    g_CameraDistance -= 0.1f*yoffset;
-
-    // Uma câmera look-at nunca pode estar exatamente "em cima" do ponto para
-    // onde ela está olhando, pois isto gera problemas de divisão por zero na
-    // definição do sistema de coordenadas da câmera. Isto é, a variável abaixo
-    // nunca pode ser zero. Versões anteriores deste código possuíam este bug,
-    // o qual foi detectado pelo aluno Vinicius Fraga (2017/2).
-    const float verysmallnumber = std::numeric_limits<float>::epsilon();
-    if (g_CameraDistance < verysmallnumber)
-        g_CameraDistance = verysmallnumber;
+    // A FAZER
 }
 
 // Definição da função que será chamada sempre que o usuário pressionar alguma
 // tecla do teclado. Veja http://www.glfw.org/docs/latest/input_guide.html#input_key
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 {
-    // ==================
-    // Não modifique este loop! Ele é utilizando para correção automatizada dos
-    // laboratórios. Deve ser sempre o primeiro comando desta função KeyCallback().
-    for (int i = 0; i < 10; ++i)
-        if (key == GLFW_KEY_0 + i && action == GLFW_PRESS && mod == GLFW_MOD_SHIFT)
-            std::exit(100 + i);
-    // ==================
 
         if (key == GLFW_KEY_W)
     {
@@ -1213,6 +1240,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         else if (action == GLFW_REPEAT);
     }
 
+    // Se o usuário pressionar SHIFT, a velocidade de movimento aumenta
     if (key == GLFW_KEY_LEFT_SHIFT)
     {
         if (action == GLFW_PRESS)
@@ -1222,6 +1250,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         else if (action == GLFW_REPEAT);
     }
 
+    // Se o usuário pressionar SPACE, o personagem pula
     if (key == GLFW_KEY_SPACE)
     {
         if (action == GLFW_PRESS)
@@ -1234,42 +1263,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     // Se o usuário pressionar a tecla ESC, fechamos a janela.
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
-
-    // O código abaixo implementa a seguinte lógica:
-    //   Se apertar tecla X       então g_AngleX += delta;
-    //   Se apertar tecla shift+X então g_AngleX -= delta;
-    //   Se apertar tecla Y       então g_AngleY += delta;
-    //   Se apertar tecla shift+Y então g_AngleY -= delta;
-    //   Se apertar tecla Z       então g_AngleZ += delta;
-    //   Se apertar tecla shift+Z então g_AngleZ -= delta;
-
-    float delta = 3.141592 / 16; // 22.5 graus, em radianos.
-
-    if (key == GLFW_KEY_X && action == GLFW_PRESS)
-    {
-        g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-
-    if (key == GLFW_KEY_Y && action == GLFW_PRESS)
-    {
-        g_AngleY += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-    if (key == GLFW_KEY_Z && action == GLFW_PRESS)
-    {
-        g_AngleZ += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-
-    // Se o usuário apertar a tecla espaço, resetamos os ângulos de Euler para zero.
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
-    {
-        g_AngleX = 0.0f;
-        g_AngleY = 0.0f;
-        g_AngleZ = 0.0f;
-        g_ForearmAngleX = 0.0f;
-        g_ForearmAngleZ = 0.0f;
-        g_TorsoPositionX = 0.0f;
-        g_TorsoPositionY = 0.0f;
-    }
 
     // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
     if (key == GLFW_KEY_P && action == GLFW_PRESS)
@@ -1366,21 +1359,6 @@ void TextRendering_ShowModelViewProjection(
     TextRendering_PrintMatrixVectorProductMoreDigits(window, viewport_mapping, p_ndc, -1.0f, 1.0f-26*pad, 1.0f);
 }
 
-// Escrevemos na tela os ângulos de Euler definidos nas variáveis globais
-// g_AngleX, g_AngleY, e g_AngleZ.
-void TextRendering_ShowEulerAngles(GLFWwindow* window)
-{
-    if ( !g_ShowInfoText )
-        return;
-
-    float pad = TextRendering_LineHeight(window);
-
-    char buffer[80];
-    snprintf(buffer, 80, "Euler Angles rotation matrix = Z(%.2f)*Y(%.2f)*X(%.2f)\n", g_AngleZ, g_AngleY, g_AngleX);
-
-    TextRendering_PrintString(window, buffer, -1.0f+pad/10, -1.0f+2*pad/10, 1.0f);
-}
-
 // Escrevemos na tela qual matriz de projeção está sendo utilizada.
 void TextRendering_ShowProjection(GLFWwindow* window)
 {
@@ -1430,6 +1408,26 @@ void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
     float charwidth = TextRendering_CharWidth(window);
 
     TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
+}
+
+// Escrevemos na tela o número de segundos passados desde o início.
+void TextRendering_ShowSecondsEllapsed(GLFWwindow* window)
+{
+    if ( !g_ShowInfoText )
+        return;
+
+    static char  buffer[20] = "?? Seg";
+    static int   numchars = 7;
+
+    // Recuperamos o número de segundos que passou desde a execução do programa
+    float seconds = (float)glfwGetTime();
+
+    numchars = snprintf(buffer, 20, "%.1f Seg", seconds);
+
+    float lineheight = TextRendering_LineHeight(window);
+    float charwidth = TextRendering_CharWidth(window);
+
+    TextRendering_PrintString(window, buffer, -0.85f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
 }
 
 // Função para debugging: imprime no terminal todas informações de um modelo
