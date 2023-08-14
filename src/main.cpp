@@ -108,7 +108,7 @@ struct ObjModel
 typedef struct jogador
 {
     // Variáveis que definem a posição do jogador
-    glm::vec4 pos;
+    glm::vec4 pos, camera;
     int vidas;
 } JOGADOR;
 
@@ -214,6 +214,7 @@ bool tecla_W_pressionada = false;
 bool tecla_A_pressionada = false;
 bool tecla_S_pressionada = false;
 bool tecla_D_pressionada = false;
+bool tecla_E_pressionada = false;     // Lanterna (ligar/desligar)
 bool tecla_SPACE_pressionada = false; // Pulo
 bool tecla_SHIFT_pressionada = false; // Corrida
 
@@ -223,6 +224,9 @@ float g_Phi = 3.141592f / 6;
 double g_LastCursorPosX, g_LastCursorPosY;
 // Usada para verificar se o mouse está centralizado.
 bool cursorCentered;
+
+bool jogador_andando;
+bool lanterna_ligada;
 
 // Variáveis que controlam rotação do antebraço
 float g_ForearmAngleZ = 0.0f;
@@ -246,6 +250,8 @@ GLint g_projection_uniform;
 GLint g_object_id_uniform;
 GLint g_bbox_min_uniform;
 GLint g_bbox_max_uniform;
+// Variáveis que eu criei para enviar para o fragment shader
+GLint lanterna_ligada_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
@@ -326,11 +332,11 @@ int main(int argc, char* argv[])
     LoadShadersFromFiles();
 
     // Carregamos duas imagens para serem utilizadas como textura
-    LoadTextureImage("../../data/tc-earth_nightmap_citylights.gif"); // TextureImage0
-    LoadTextureImage("../../data/grass.jpg");                        // TextureImage1
-    LoadTextureImage("../../data/ceu.hdr");                          // TextureImage2
-    LoadTextureImage("../../data/Flashlight/flashlight_D.jpg");      // TextureImage3
-    LoadTextureImage("../../data/CrossHair.png");                    // TextureImage4
+    LoadTextureImage("../../data/grass.jpg");                        // TextureImage0
+    LoadTextureImage("../../data/ceu.hdr");                          // TextureImage1
+    LoadTextureImage("../../data/Flashlight/flashlight_D.jpg");      // TextureImage2
+    LoadTextureImage("../../data/CrossHair.png");                    // TextureImage3
+    LoadTextureImage("../../data/grass_disp.png");                   // TextureImage0_NormalMap
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/sphere.obj");
@@ -372,14 +378,15 @@ int main(int argc, char* argv[])
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
-    // Definimos a posição inicial do jogador e a quantidade de vidas
-    JOGADOR jogador = {{0.0f, 2.0f, 0.0f, 1.0f},3};
+    // Definimos a posição inicial do jogador, da câmera e a quantidade de vidas
+    JOGADOR jogador = {{0.0f, 2.0f, 0.0f, 1.0f},{0.0f, 2.0f, 0.0f, 1.0f}, 3};
+    // Variável auxiliar no efeito de caminhada
+    bool shake_cima=false;
 
     // Definir velocidade e tempo para câmera livre
     float speed, speed_base = 3.0f; // Velocidade da câmera
     float Yspeed, gravity = 3.0f; // Aceleração da queda
     float prev_time = (float)glfwGetTime();
-
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -424,6 +431,8 @@ int main(int argc, char* argv[])
         glm::vec4 vu = glm::normalize(crossproduct(camera_up_vector, vw));
         glm::vec4 vv = crossproduct(vw, vu);
 
+        // A câmera pode sofrer efeitos como shaking durante o dano ou na caminhada, mas isso não irá mudar a posição do jogador.
+
         // Faz o jogador correr quando pressiona SHIFT
         speed = speed_base;
         if (tecla_SHIFT_pressionada)
@@ -433,23 +442,47 @@ int main(int argc, char* argv[])
 
          // Realiza a movimentação do jogador, atualizando sua posição anterior e atual
         if (tecla_W_pressionada)
-        {
             jogador.pos += -vw * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f)); // Fixa o jogador no chão
-        }
-        if (tecla_S_pressionada)
-        {
-            jogador.pos += vw * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
-        }
-        if (tecla_D_pressionada)
-        {
-            jogador.pos += vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
-        }
-        if (tecla_A_pressionada)
-        {
-            jogador.pos += -vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
-        }
 
-        // Gravidade
+        if (tecla_S_pressionada)
+            jogador.pos += vw * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+
+        if (tecla_D_pressionada)
+            jogador.pos += vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+
+        if (tecla_A_pressionada)
+            jogador.pos += -vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+
+        // "Balanço" enquanto o jogador anda no chão.
+        if((tecla_A_pressionada||tecla_D_pressionada||tecla_S_pressionada||tecla_W_pressionada) && jogador.pos[1] <= 0.0f)
+            jogador_andando = true;
+        else
+            jogador_andando = false;
+
+        if(jogador_andando)
+        {
+            if (shake_cima)
+            {
+                jogador.camera[1] += 0.1*(speed * delta_t);
+                if(jogador.camera[1]>=jogador.pos[1])
+                    shake_cima = false;
+            }
+            else
+            {
+                jogador.camera[1] -= 0.1*(speed * delta_t);
+                if(jogador.camera[1]<jogador.pos[1]-0.1f)
+                    shake_cima = true;
+            }
+        }
+        else if (jogador.camera[1] < jogador.pos[1] && jogador.pos[1] <= 0.0f)
+        {
+            jogador.camera[1] += 0.1*(speed * delta_t);
+            shake_cima = false;
+        }
+        else
+            jogador.camera[1] = jogador.pos[1];
+
+        // Gravidade (reduz a velocidade em Y gradualmente com o tempo até chegar no chão
         if (jogador.pos[1] > 0.0f)
         {
             Yspeed -= gravity * delta_t;
@@ -457,17 +490,28 @@ int main(int argc, char* argv[])
         else
             Yspeed = 0.0f;
 
-        // Pulo
+        // Pulo (faz com que a velocidade em Y seja a velocidade base)
         if (tecla_SPACE_pressionada && jogador.pos[1] <= 0.0f)
         {
             Yspeed = speed_base;
         }
-
+        // Velocidade no eixo Y
         jogador.pos[1] += Yspeed*delta_t;
 
-        // Computamos a matriz "View" utilizando os parâmetros da câmera para
-        // definir o sistema de coordenadas da câmera.  Veja slides 2-14, 184-190 e 236-242 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
-        glm::mat4 view = Matrix_Camera_View(jogador.pos, camera_view_vector, vv);
+        // Ligar/Desligar lanterna
+        if(tecla_E_pressionada)
+            lanterna_ligada = false;
+        else
+            lanterna_ligada = true;
+
+        // Envia a informação da lanterna para o Fragment Shader, para ligar ou desligar a luz.
+        glUniform1i(lanterna_ligada_uniform, lanterna_ligada ? 1 : 0);
+
+        // O eixo z da câmera sempre é igual ao eixo da posição do jogador
+        jogador.camera[0] = jogador.pos[0];
+        jogador.camera[2] = jogador.pos[2];
+        // Computamos a matriz "View" utilizando os parâmetros da câmera para definir o sistema de coordenadas da câmera.
+        glm::mat4 view = Matrix_Camera_View(jogador.camera, camera_view_vector, vv);
 
         // Agora computamos a matriz de Projeção.
         glm::mat4 projection;
@@ -515,7 +559,7 @@ int main(int argc, char* argv[])
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
 
-        model = Matrix_Translate(jogador.pos[0], jogador.pos[1], jogador.pos[2]);
+        model = Matrix_Translate(jogador.camera[0], jogador.camera[1], jogador.camera[2]);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, SPHERE);
         DrawVirtualObject("the_sphere");
@@ -530,18 +574,6 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, PLANE);
         DrawVirtualObject("the_plane");
 
-        // Desenhamos a lanterna
-        model = Matrix_Translate(jogador.pos[0] + vx*0.5f, jogador.pos[1] + vy*0.5f, jogador.pos[2] + vz*0.5f)
-            * Matrix_Scale(0.01f,0.01f,0.01f);
-            PushMatrix(model);
-                model *= Matrix_Translate(0.1f, 0.1f, 0.1f)
-                      *  Matrix_Rotate_X(-g_CameraPhi)
-                      *  Matrix_Rotate_Y(g_CameraTheta);
-                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-                glUniform1i(g_object_id_uniform, FLASHLIGHT);
-                DrawVirtualObject("the_light");
-            PopMatrix(model);
-
         // Desenhamos o modelo do coelho
         model = Matrix_Translate(1.0f,0.0f,0.0f)
               * Matrix_Rotate_X(g_AngleX + (float)glfwGetTime() * 0.1f);
@@ -549,13 +581,23 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, BUNNY);
         DrawVirtualObject("the_bunny");
 
+        // Desenhamos a lanterna (BUG: Desenhar a lanterna com o Z-Buffer desligado faz com que alguns fragmentos da parte de trás
+        // se sobreponham em cima dos da parte da frente.
+        glm::vec3 item_pos = glm::vec3(0.6f,(jogador.camera[1]-jogador.pos[1])*0.2-0.4,-0.8f);
+        // Resetamos a matriz View para que a lanterna não se movimente na tela.
+        glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
+        model = Matrix_Translate(item_pos[0], item_pos[1], item_pos[2])
+            * Matrix_Scale(0.01f,0.01f,0.01f)
+            * Matrix_Rotate_X(3.14);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, FLASHLIGHT);
+        DrawVirtualObject("the_light");
 
         // ------------------------------------- CrossHair
 
 
 
         // ------------------------------------- CrossHair
-
 
 
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
@@ -717,12 +759,16 @@ void LoadShadersFromFiles()
     g_object_id_uniform  = glGetUniformLocation(g_GpuProgramID, "object_id"); // Variável "object_id" em shader_fragment.glsl
     g_bbox_min_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_min");
     g_bbox_max_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_max");
+    lanterna_ligada_uniform = glGetUniformLocation(g_GpuProgramID, "lanterna_ligada"); // Variável usada para ligar ou desligar a lanterna
 
     // Variáveis em "shader_fragment.glsl" para acesso das imagens de textura
     glUseProgram(g_GpuProgramID);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage0"), 0);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage1"), 1);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage2"), 2);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage3"), 3);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage0_NormalMap"), 4);
+
     glUseProgram(0);
 }
 
@@ -1238,6 +1284,14 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         else if (action == GLFW_RELEASE)
             tecla_D_pressionada = false;
         else if (action == GLFW_REPEAT);
+    }
+
+        if (key == GLFW_KEY_E)
+    {
+        if (action == GLFW_PRESS && tecla_E_pressionada == false)
+            tecla_E_pressionada = true;
+        else if (action == GLFW_PRESS && tecla_E_pressionada == true)
+            tecla_E_pressionada = false;
     }
 
     // Se o usuário pressionar SHIFT, a velocidade de movimento aumenta

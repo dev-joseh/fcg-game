@@ -36,10 +36,19 @@ uniform sampler2D TextureImage0;
 uniform sampler2D TextureImage1;
 uniform sampler2D TextureImage2;
 uniform sampler2D TextureImage3;
-uniform sampler2D crosshairTexture;
+
+// Mapa de normais da textura do chão
+uniform sampler2D TextureImage0_NormalMap;
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec4 color;
+
+// Função para a lanterna
+float luz_lanterna(vec4 l, vec4 sv, float potencia);
+
+// Parâmetros criados:
+uniform int lanterna_ligada;
+int potencia_lanterna;
 
 // Constantes
 #define M_PI   3.14159265358979323846
@@ -51,6 +60,7 @@ void main()
     // sistema de coordenadas da câmera.
     vec4 origin = vec4(0.0, 0.0, 0.0, 1.0);
     vec4 camera_position = inverse(view) * origin;
+    vec4 cameraForward = vec4(view[0][2], view[1][2], view[2][2], 0.0f);
 
     // O fragmento atual é coberto por um ponto que percente à superfície de um
     // dos objetos virtuais da cena. Este ponto, p, possui uma posição no
@@ -63,16 +73,30 @@ void main()
     // normais de cada vértice.
     vec4 n = normalize(normal);
 
-    // Vetor que define o sentido da fonte de luz em relação ao ponto atual.
-    vec4 l = normalize(vec4(1.0,1.0,0.0,0.0));
-
     // Vetor que define o sentido da câmera em relação ao ponto atual.
     vec4 v = normalize(camera_position - p);
+
+    // Ponto que define a posição da fonte de luz spotlight.
+    vec4 sl = camera_position;
+
+    // Vetor que define o sentido da fonte de luz spotlight.
+    vec4 sv = cameraForward;
+
+    // Vetor que define o sentido da fonte de luz em relação ao ponto atual.
+    vec4 l = v;
+
+    // Vetor que define o sentido da reflexão especular ideal.
+    vec4 r = -l+2*n*(dot(n, l)); // Vetor de reflexão especular ideal
 
     // Coordenadas de textura U e V
     float U = 0.0;
     float V = 0.0;
 
+    // Parâmetros que definem as propriedades espectrais da superfície
+    vec3 Kd, Ks, Ka; // Refletâncias difusa, especular e ambiente.
+    float q; // Expoente especular para o modelo de iluminação de Phong
+
+    // Coordenadas de textura esféricas
     float theta, phi, px, py, pz;
 
     if ( object_id == SPHERE )
@@ -92,18 +116,16 @@ void main()
 
         U = (theta+M_PI)/(2*M_PI);
         V = (phi+M_PI_2)/M_PI;
+
+        // Propriedades espectrais da esfera
+        Kd = vec3(0.0,0.0,0.0);
+        Ks = vec3(0.0,0.0,0.0);
+        Ka = vec3(0.2,0.02,0.02);
+        q = 1.0;
     }
     else if ( object_id == BUNNY )
     {
-        // PREENCHA AQUI as coordenadas de textura do coelho, computadas com
-        // projeção planar XY em COORDENADAS DO MODELO. Utilize como referência
-        // o slides 99-104 do documento Aula_20_Mapeamento_de_Texturas.pdf,
-        // e também use as variáveis min*/max* definidas abaixo para normalizar
-        // as coordenadas de textura U e V dentro do intervalo [0,1]. Para
-        // tanto, veja por exemplo o mapeamento da variável 'p_v' utilizando
-        // 'h' no slides 158-160 do documento Aula_20_Mapeamento_de_Texturas.pdf.
-        // Veja também a Questão 4 do Questionário 4 no Moodle.
-
+        // Coordenadas de textura do coelho usando BBox
         float minx = bbox_min.x;
         float maxx = bbox_max.x;
 
@@ -118,9 +140,20 @@ void main()
 
         U = (position_model.x-a.x)/(b.x-a.x);
         V = (position_model.y-a.y)/(b.y-a.y);
+
+        // Propriedades espectrais do coelho
+        Kd = vec3(0.08,0.4,0.8);
+        Ks = vec3(0.8,0.8,0.8);
+        Ka = vec3(0.04,0.2,0.4);
+        q = 32.0;
     }
     else if ( object_id == FLASHLIGHT )
     {
+        // Propriedades espectrais da lanterna
+        Kd = vec3(0.0,0.0,0.0);
+        Ks = vec3(0.0,0.0,0.0);
+        Ka = vec3(1,1,1);
+        q = 1.0;
         U = texcoords.x;
         V = texcoords.y;
     }
@@ -131,6 +164,12 @@ void main()
         // Coordenadas de textura do plano, obtidas do arquivo OBJ.
         U = texcoordsRepetidas[0];
         V = texcoordsRepetidas[1];
+
+        // Propriedades espectrais da lanterna
+        Kd = vec3(0.1,0.1,0.1);
+        Ks = vec3(0.5,0.5,0.5);
+        Ka = vec3(0.09,0.01,0.01);
+        q = 32.0;
     }
     else if ( object_id == CROSSHAIR )
     {
@@ -141,24 +180,49 @@ void main()
         V = texcoordsRepetidas[1];
     }
 
-    // Textura clara
-    vec3 Kd0 = texture(TextureImage3, vec2(U,V)).rgb;
-    // Equação de Iluminação
-    float lambert = max(0,dot(n,l));
-    // Textura escura
-    vec3 Kd1 = texture(TextureImage3, vec2(U,V)).rgb;
+    // Espectro da fonte de iluminação
+    vec3 I = vec3(1.0,1.0,1.0); // Espectro da fonte de luz
 
-    // A cor da textura 2 apenas aparece quando lambert é negativo, portanto (1 - lambert)
+    // Espectro da luz ambiente
+    vec3 Ia = vec3(0.15,0.15,0.15); // Espectro da luz ambiente
+
+    // Termo difuso utilizando a lei dos cossenos de Lambert
+    vec3 lambert_diffuse_term = Kd * I * max(0, dot(n,l)); // Termo difuso de Lambert
+
+    // Termo ambiente
+    vec3 ambient_term = Ka * Ia; // Termo ambiente
+
+    // Termo especular utilizando o modelo de iluminação de Phong
+    vec3 phong_specular_term  = Ks * I * pow(max(0,dot(r,v)), q) * max(0, dot(n,l)); // Termo especular de Phong
+
+    // Define se a lanterna está ligada.
+    if (lanterna_ligada==1)
+        potencia_lanterna = 20;
+    else
+        potencia_lanterna = 0;
+
+    // Define a iluminação dos objetos (A = Ambiente, D = Difusa, S = Difusa + Especular)
+    vec3 A = ambient_term;
+    vec3 D = lambert_diffuse_term * 0.2;
+    vec3 S = (lambert_diffuse_term * 0.8 + phong_specular_term) * luz_lanterna(l, sv, potencia_lanterna);
+
+    // Define a textura de cada objeto
     if( object_id == SPHERE )
-        color.rgb = texture(TextureImage2, vec2(U,V)).rgb;
+        color.rgb = texture(TextureImage1, vec2(U,V)).rgb*(A+D+S);
     else if( object_id == BUNNY )
-        color.rgb = Kd0 * (lambert+0.01) + Kd1 * (1-lambert);
+        color.rgb = texture(TextureImage3, vec2(U,V)).rgb*(A+D+S);
     else if( object_id == PLANE )
-        color.rgb = texture(TextureImage1, vec2(U,V)).rgb;
+        color.rgb = texture(TextureImage0, vec2(U,V)).rgb*(D+S)
+        + texture(TextureImage0_NormalMap, vec2(U,V)).rgb*(A+D);
+
     else if( object_id == FLASHLIGHT )
-        color.rgb = vec3(0, 0, 0).rgb;
+        color.rgb = texture(TextureImage2, vec2(U,V)).rgb*(A+D+S);
+
+    // A implementar ...
     else if( object_id == CROSSHAIR )
-        color.rgb = texture(crosshairTexture, vec2(U,V)).rgb;
+        color.rgb = texture(TextureImage3, vec2(U,V)).rgb;
+
+
 
     // NOTE: Se você quiser fazer o rendering de objetos transparentes, é
     // necessário:
@@ -179,3 +243,18 @@ void main()
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);
 }
 
+// Valor de iluminação da lanterna, normalizado para valores entre [0.0 1.0]
+float luz_lanterna(vec4 l, vec4 sv, float potencia)
+{
+    float resultado;
+    // A potencia dita a força da luz e seu raio
+    float minimo = cos(potencia * 3.1415926535/180.0);
+    float valor = dot(l, sv);
+
+    if(valor > minimo)
+        resultado = valor - minimo;
+    else
+        resultado = 0.0f;
+
+    return resultado * potencia;
+}
