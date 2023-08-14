@@ -23,7 +23,7 @@ uniform mat4 projection;
 #define BUNNY  1
 #define PLANE  2
 #define FLASHLIGHT  3
-#define CROSSHAIR  4
+#define SCREEN  4
 
 uniform int object_id;
 
@@ -171,13 +171,11 @@ void main()
         Ka = vec3(0.09,0.01,0.01);
         q = 32.0;
     }
-    else if ( object_id == CROSSHAIR )
+    else if ( object_id == SCREEN )
     {
-        vec2 texcoordsRepetidas = fract(texcoords*20); // Coordenadas repetidas do plano de chao
-
-        // Coordenadas de textura do plano, obtidas do arquivo OBJ.
-        U = texcoordsRepetidas[0];
-        V = texcoordsRepetidas[1];
+        // Coordenadas de textura da tela, obtidas do arquivo OBJ.
+        U = texcoords[0];
+        V = texcoords[1];
     }
 
     // Espectro da fonte de iluminação
@@ -214,15 +212,16 @@ void main()
     else if( object_id == PLANE )
         color.rgb = texture(TextureImage0, vec2(U,V)).rgb*(D+S)
         + texture(TextureImage0_NormalMap, vec2(U,V)).rgb*(A+D);
-
     else if( object_id == FLASHLIGHT )
         color.rgb = texture(TextureImage2, vec2(U,V)).rgb*(A+D+S);
 
     // A implementar ...
-    else if( object_id == CROSSHAIR )
+    else if( object_id == SCREEN )
+    {
         color.rgb = texture(TextureImage3, vec2(U,V)).rgb;
-
-
+        if (color.r < 0.1f)
+            discard;
+    }
 
     // NOTE: Se você quiser fazer o rendering de objetos transparentes, é
     // necessário:
@@ -236,6 +235,7 @@ void main()
     //    suas distâncias para a câmera (desenhando primeiro objetos
     //    transparentes que estão mais longe da câmera).
     // Alpha default = 1 = 100% opaco = 0% transparente
+
     color.a = 1;
 
     // Cor final com correção gamma, considerando monitor sRGB.

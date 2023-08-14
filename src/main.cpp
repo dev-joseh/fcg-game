@@ -225,7 +225,9 @@ double g_LastCursorPosX, g_LastCursorPosY;
 // Usada para verificar se o mouse está centralizado.
 bool cursorCentered;
 
+// Outras variáveis
 bool jogador_andando;
+float movimento_crosshair;
 bool lanterna_ligada;
 
 // Variáveis que controlam rotação do antebraço
@@ -354,6 +356,10 @@ int main(int argc, char* argv[])
     ObjModel flashlightmodel("../../data/Flashlight/flashlight.obj");
     ComputeNormals(&flashlightmodel);
     BuildTrianglesAndAddToVirtualScene(&flashlightmodel);
+
+    ObjModel screenmodel("../../data/CrossHair.obj");
+    ComputeNormals(&screenmodel);
+    BuildTrianglesAndAddToVirtualScene(&screenmodel);
 
     if ( argc > 1 )
     {
@@ -554,6 +560,7 @@ int main(int argc, char* argv[])
         #define BUNNY  1
         #define PLANE  2
         #define FLASHLIGHT  3
+        #define SCREEN  4
 
         // -- Skybox --
         glDisable(GL_DEPTH_TEST);
@@ -583,6 +590,7 @@ int main(int argc, char* argv[])
 
         // Desenhamos a lanterna (BUG: Desenhar a lanterna com o Z-Buffer desligado faz com que alguns fragmentos da parte de trás
         // se sobreponham em cima dos da parte da frente.
+        glClear(GL_DEPTH_BUFFER_BIT);
         glm::vec3 item_pos = glm::vec3(0.6f,(jogador.camera[1]-jogador.pos[1])*0.2-0.4,-0.8f);
         // Resetamos a matriz View para que a lanterna não se movimente na tela.
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
@@ -594,9 +602,14 @@ int main(int argc, char* argv[])
         DrawVirtualObject("the_light");
 
         // ------------------------------------- CrossHair
-
-
-
+        glDisable(GL_DEPTH_TEST);
+        model = Matrix_Translate(0.0f,0.0f,-2.0f)
+            * Matrix_Scale(0.1f,0.1f,1.0f)
+            * Matrix_Rotate_X(3.14/2);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, SCREEN);
+        DrawVirtualObject("the_aim");
+        glEnable(GL_DEPTH_TEST);
         // ------------------------------------- CrossHair
 
 

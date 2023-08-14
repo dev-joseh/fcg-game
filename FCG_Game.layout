@@ -2,28 +2,32 @@
 <CodeBlocks_layout_file>
 	<FileVersion major="1" minor="0" />
 	<ActiveTarget name="Debug" />
-	<File name="src\shader_vertex.glsl" open="1" top="1" tabpos="3" split="0" active="1" splitpos="0" zoom_1="2" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="818" topLine="0" />
-		</Cursor>
-	</File>
 	<File name="include\matrices.h" open="1" top="0" tabpos="4" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
 			<Cursor1 position="6072" topLine="192" />
 		</Cursor>
 	</File>
-	<File name="src\main.cpp" open="1" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="14928" topLine="327" />
-		</Cursor>
-		<Folding>
-			<Collapse line="1017" />
-			<Collapse line="1032" />
-		</Folding>
-	</File>
 	<File name="src\shader_fragment.glsl" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="2" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="7044" topLine="193" />
+			<Cursor1 position="5438" topLine="12" />
+		</Cursor>
+	</File>
+	<File name="include\utils.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="55" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="src\main.cpp" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="26151" topLine="596" />
+		</Cursor>
+		<Folding>
+			<Collapse line="1370" />
+		</Folding>
+	</File>
+	<File name="src\textrendering.cpp" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="2352" topLine="0" />
 		</Cursor>
 	</File>
 	<File name="src\glad.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
@@ -31,14 +35,9 @@
 			<Cursor1 position="4158" topLine="173" />
 		</Cursor>
 	</File>
-	<File name="src\textrendering.cpp" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="src\shader_vertex.glsl" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="2" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="2352" topLine="0" />
-		</Cursor>
-	</File>
-	<File name="include\utils.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="55" topLine="0" />
+			<Cursor1 position="1102" topLine="17" />
 		</Cursor>
 	</File>
 </CodeBlocks_layout_file>
