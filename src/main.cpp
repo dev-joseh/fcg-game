@@ -334,11 +334,11 @@ int main(int argc, char* argv[])
     LoadShadersFromFiles();
 
     // Carregamos duas imagens para serem utilizadas como textura
-    LoadTextureImage("../../data/grass.jpg");                        // TextureImage0
+    LoadTextureImage("../../data/chao.jpg");                         // TextureImage0
     LoadTextureImage("../../data/ceu.hdr");                          // TextureImage1
     LoadTextureImage("../../data/Flashlight/flashlight_D.jpg");      // TextureImage2
     LoadTextureImage("../../data/CrossHair.png");                    // TextureImage3
-    LoadTextureImage("../../data/grass_disp.png");                   // TextureImage0_NormalMap
+    LoadTextureImage("../../data/chao_normal.jpg");                  // TextureImage0_NormalMap
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/sphere.obj");
@@ -357,6 +357,10 @@ int main(int argc, char* argv[])
     ComputeNormals(&flashlightmodel);
     BuildTrianglesAndAddToVirtualScene(&flashlightmodel);
 
+    ObjModel revolvermodel("../../data/revolver.obj");
+    ComputeNormals(&revolvermodel);
+    BuildTrianglesAndAddToVirtualScene(&revolvermodel);
+
     ObjModel screenmodel("../../data/CrossHair.obj");
     ComputeNormals(&screenmodel);
     BuildTrianglesAndAddToVirtualScene(&screenmodel);
@@ -369,12 +373,6 @@ int main(int argc, char* argv[])
 
     // Inicializamos o código para renderização de texto.
     TextRendering_Init();
-
-
-    // ------------------------------------------- CROSSHAIR
-
-
-    // ----------------------------------------------- CROSSHAIR
 
     // Habilitamos o Z-buffer. Veja slides 104-116 do documento Aula_09_Projecoes.pdf.
     glEnable(GL_DEPTH_TEST);
@@ -560,7 +558,8 @@ int main(int argc, char* argv[])
         #define BUNNY  1
         #define PLANE  2
         #define FLASHLIGHT  3
-        #define SCREEN  4
+        #define REVOLVER  4
+        #define SCREEN  5
 
         // -- Skybox --
         glDisable(GL_DEPTH_TEST);
@@ -591,15 +590,30 @@ int main(int argc, char* argv[])
         // Desenhamos a lanterna (BUG: Desenhar a lanterna com o Z-Buffer desligado faz com que alguns fragmentos da parte de trás
         // se sobreponham em cima dos da parte da frente.
         glClear(GL_DEPTH_BUFFER_BIT);
-        glm::vec3 item_pos = glm::vec3(0.6f,(jogador.camera[1]-jogador.pos[1])*0.2-0.4,-0.8f);
+        glm::vec3 item_pos = glm::vec3(0.0f,(jogador.camera[1]-jogador.pos[1])*0.2f,-0.6f);
         // Resetamos a matriz View para que a lanterna não se movimente na tela.
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
-        model = Matrix_Translate(item_pos[0], item_pos[1], item_pos[2])
+        model = Matrix_Translate(item_pos[0]-0.6f, item_pos[1]-0.4f, item_pos[2])
             * Matrix_Scale(0.01f,0.01f,0.01f)
             * Matrix_Rotate_X(3.14);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, FLASHLIGHT);
         DrawVirtualObject("the_light");
+
+
+        // Resetamos a matriz View para que a lanterna não se movimente na tela.
+        model = Matrix_Translate(item_pos[0]+0.6f, -item_pos[1]-0.4f, item_pos[2]-0.6f)
+            * Matrix_Scale(0.002f,0.002f,0.002f)
+            * Matrix_Rotate_Y(-3.14/2);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, REVOLVER);
+        DrawVirtualObject("Handle");
+        DrawVirtualObject("Body");
+        DrawVirtualObject("Back_Trigger");
+        DrawVirtualObject("Trigger");
+        DrawVirtualObject("Chamber_Holder");
+        DrawVirtualObject("Chamber");
+        DrawVirtualObject("Barrel");
 
         // ------------------------------------- CrossHair
         glDisable(GL_DEPTH_TEST);

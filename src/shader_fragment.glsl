@@ -23,7 +23,8 @@ uniform mat4 projection;
 #define BUNNY  1
 #define PLANE  2
 #define FLASHLIGHT  3
-#define SCREEN  4
+#define REVOLVER  4
+#define SCREEN  5
 
 uniform int object_id;
 
@@ -142,9 +143,9 @@ void main()
         V = (position_model.y-a.y)/(b.y-a.y);
 
         // Propriedades espectrais do coelho
-        Kd = vec3(0.08,0.4,0.8);
+        Kd = vec3(0.8,0.8,0.8);
         Ks = vec3(0.8,0.8,0.8);
-        Ka = vec3(0.04,0.2,0.4);
+        Ka = vec3(0.4,0.4,0.4);
         q = 32.0;
     }
     else if ( object_id == FLASHLIGHT )
@@ -157,9 +158,19 @@ void main()
         U = texcoords.x;
         V = texcoords.y;
     }
+    else if ( object_id == REVOLVER )
+    {
+        // Propriedades espectrais da lanterna
+        Kd = vec3(0.0,0.0,0.0);
+        Ks = vec3(0.0,0.0,0.0);
+        Ka = vec3(1,1,1);
+        q = 1.0;
+        U = texcoords.x;
+        V = texcoords.y;
+    }
     else if ( object_id == PLANE )
     {
-        vec2 texcoordsRepetidas = fract(texcoords*20); // Coordenadas repetidas do plano de chao
+        vec2 texcoordsRepetidas = fract(texcoords*250); // Coordenadas repetidas do plano de chao
 
         // Coordenadas de textura do plano, obtidas do arquivo OBJ.
         U = texcoordsRepetidas[0];
@@ -170,6 +181,8 @@ void main()
         Ks = vec3(0.5,0.5,0.5);
         Ka = vec3(0.09,0.01,0.01);
         q = 32.0;
+
+        n = normalize(inverse(transpose(model)) * texture(TextureImage0_NormalMap, vec2(U,V)));
     }
     else if ( object_id == SCREEN )
     {
@@ -182,7 +195,7 @@ void main()
     vec3 I = vec3(1.0,1.0,1.0); // Espectro da fonte de luz
 
     // Espectro da luz ambiente
-    vec3 Ia = vec3(0.15,0.15,0.15); // Espectro da luz ambiente
+    vec3 Ia = vec3(0.1,0.1,0.1); // Espectro da luz ambiente
 
     // Termo difuso utilizando a lei dos cossenos de Lambert
     vec3 lambert_diffuse_term = Kd * I * max(0, dot(n,l)); // Termo difuso de Lambert
@@ -195,29 +208,27 @@ void main()
 
     // Define se a lanterna está ligada.
     if (lanterna_ligada==1)
-        potencia_lanterna = 20;
+        potencia_lanterna = 50;
     else
         potencia_lanterna = 0;
 
     // Define a iluminação dos objetos (A = Ambiente, D = Difusa, S = Difusa + Especular)
     vec3 A = ambient_term;
-    vec3 D = lambert_diffuse_term * 0.2;
-    vec3 S = (lambert_diffuse_term * 0.8 + phong_specular_term) * luz_lanterna(l, sv, potencia_lanterna);
+    vec3 D = lambert_diffuse_term * 0.5 * luz_lanterna(l, sv, potencia_lanterna);
+    vec3 S = (lambert_diffuse_term * 0.5 + phong_specular_term) * luz_lanterna(l, sv, potencia_lanterna);
 
     // Define a textura de cada objeto
     if( object_id == SPHERE )
         color.rgb = texture(TextureImage1, vec2(U,V)).rgb*(A+D+S);
     else if( object_id == BUNNY )
-        color.rgb = texture(TextureImage3, vec2(U,V)).rgb*(A+D+S);
+        color.rgb = texture(TextureImage0, vec2(U,V)).rgb*(A+D+S);
     else if( object_id == PLANE )
-        color.rgb = texture(TextureImage0, vec2(U,V)).rgb*(D+S)
-        + texture(TextureImage0_NormalMap, vec2(U,V)).rgb*(A+D);
+        color.rgb = texture(TextureImage0, vec2(U,V)).rgb*(A+D);
     else if( object_id == FLASHLIGHT )
+        color.rgb = texture(TextureImage2, vec2(U,V)).rgb*(A+A+A);
+    else if( object_id == REVOLVER )
         color.rgb = texture(TextureImage2, vec2(U,V)).rgb*(A+D+S);
-
-    // A implementar ...
-    else if( object_id == SCREEN )
-    {
+    else if( object_id == SCREEN ){
         color.rgb = texture(TextureImage3, vec2(U,V)).rgb;
         if (color.r < 0.1f)
             discard;
@@ -248,7 +259,7 @@ float luz_lanterna(vec4 l, vec4 sv, float potencia)
 {
     float resultado;
     // A potencia dita a força da luz e seu raio
-    float minimo = cos(potencia * 3.1415926535/180.0);
+    float minimo = cos(potencia/2 * 3.1415926535/180.0);
     float valor = dot(l, sv);
 
     if(valor > minimo)
