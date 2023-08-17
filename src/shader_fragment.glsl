@@ -20,11 +20,14 @@ uniform mat4 projection;
 
 // Identificador que define qual objeto está sendo desenhado no momento
 #define SPHERE 0
-#define BUNNY  1
+#define BULLET 1
 #define PLANE  2
 #define FLASHLIGHT  3
 #define REVOLVER  4
 #define SCREEN  5
+#define SKULL  6
+#define EYE 7
+
 
 uniform int object_id;
 
@@ -33,13 +36,17 @@ uniform vec4 bbox_min;
 uniform vec4 bbox_max;
 
 // Variáveis para acesso das imagens de textura
-uniform sampler2D TextureImage0;
-uniform sampler2D TextureImage1;
-uniform sampler2D TextureImage2;
-uniform sampler2D TextureImage3;
+uniform sampler2D chao;
+uniform sampler2D ceu;
+uniform sampler2D lanterna;
+uniform sampler2D crosshair;
+uniform sampler2D skull_diff;
 
-// Mapa de normais da textura do chão
-uniform sampler2D TextureImage0_NormalMap;
+// Mapa de normais
+uniform sampler2D chao_normal;
+uniform sampler2D skull_normal;
+
+// Mapa de especular
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec4 color;
@@ -102,12 +109,6 @@ void main()
 
     if ( object_id == SPHERE )
     {
-        // PREENCHA AQUI as coordenadas de textura da esfera, computadas com
-        // projeção esférica EM COORDENADAS DO MODELO. Utilize como referência
-        // o slides 134-150 do documento Aula_20_Mapeamento_de_Texturas.pdf.
-        // A esfera que define a projeção deve estar centrada na posição
-        // "bbox_center" definida abaixo.
-
         vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
 
         vec4 r = position_model - bbox_center;
@@ -118,36 +119,13 @@ void main()
         U = (theta+M_PI)/(2*M_PI);
         V = (phi+M_PI_2)/M_PI;
 
-        // Propriedades espectrais da esfera
+        // Propriedades espectrais da esfera skybox
         Kd = vec3(0.0,0.0,0.0);
         Ks = vec3(0.0,0.0,0.0);
         Ka = vec3(0.2,0.02,0.02);
         q = 1.0;
     }
-    else if ( object_id == BUNNY )
-    {
-        // Coordenadas de textura do coelho usando BBox
-        float minx = bbox_min.x;
-        float maxx = bbox_max.x;
 
-        float miny = bbox_min.y;
-        float maxy = bbox_max.y;
-
-        float minz = bbox_min.z;
-        float maxz = bbox_max.z;
-
-        vec4 a = vec4(minx, miny, minz, 1.0);
-        vec4 b = vec4(maxx, maxy, maxz, 1.0);
-
-        U = (position_model.x-a.x)/(b.x-a.x);
-        V = (position_model.y-a.y)/(b.y-a.y);
-
-        // Propriedades espectrais do coelho
-        Kd = vec3(0.8,0.8,0.8);
-        Ks = vec3(0.8,0.8,0.8);
-        Ka = vec3(0.4,0.4,0.4);
-        q = 32.0;
-    }
     else if ( object_id == FLASHLIGHT )
     {
         // Propriedades espectrais da lanterna
@@ -160,13 +138,43 @@ void main()
     }
     else if ( object_id == REVOLVER )
     {
-        // Propriedades espectrais da lanterna
+        // Propriedades espectrais do revolver
         Kd = vec3(0.0,0.0,0.0);
         Ks = vec3(0.0,0.0,0.0);
         Ka = vec3(1,1,1);
         q = 1.0;
         U = texcoords.x;
         V = texcoords.y;
+    }
+    else if ( object_id == BULLET )
+    {
+        U = texcoords.x;
+        V = texcoords.y;
+        // Propriedades espectrais da bala
+        Kd = vec3(0.6,0.3,0.3);
+        Ks = vec3(0.9,0.5,0.5);
+        Ka = vec3(0.3,0.1,0.1);
+        q = 10.0;
+    }
+    else if ( object_id == SKULL )
+    {
+        U = texcoords.x;
+        V = texcoords.y;
+        // Propriedades espectrais da caveira
+        Kd = vec3(0.3,0.3,0.3);
+        Ks = vec3(0.3,0.3,0.3);
+        Ka = vec3(0.01,0.01,0.01);
+        q = 25.0;
+    }
+        else if ( object_id == EYE )
+    {
+        U = texcoords.x;
+        V = texcoords.y;
+        // Propriedades espectrais dos olhos
+        Kd = vec3(0.3,0.3,0.3);
+        Ks = vec3(0.3,0.3,0.3);
+        Ka = vec3(0.01,0.01,0.01);
+        q = 25.0;
     }
     else if ( object_id == PLANE )
     {
@@ -176,13 +184,13 @@ void main()
         U = texcoordsRepetidas[0];
         V = texcoordsRepetidas[1];
 
-        // Propriedades espectrais da lanterna
+        // Propriedades espectrais do chão
         Kd = vec3(0.1,0.1,0.1);
         Ks = vec3(0.5,0.5,0.5);
         Ka = vec3(0.09,0.01,0.01);
-        q = 32.0;
+        q = 80.0;
 
-        n = normalize(inverse(transpose(model)) * texture(TextureImage0_NormalMap, vec2(U,V)));
+        n = normalize(inverse(transpose(model)) * texture(chao_normal, vec2(U,V)));
     }
     else if ( object_id == SCREEN )
     {
@@ -208,7 +216,7 @@ void main()
 
     // Define se a lanterna está ligada.
     if (lanterna_ligada==1)
-        potencia_lanterna = 50;
+        potencia_lanterna = 40;
     else
         potencia_lanterna = 0;
 
@@ -218,37 +226,33 @@ void main()
     vec3 S = (lambert_diffuse_term * 0.5 + phong_specular_term) * luz_lanterna(l, sv, potencia_lanterna);
 
     // Define a textura de cada objeto
+    color.a = 1;
+
     if( object_id == SPHERE )
-        color.rgb = texture(TextureImage1, vec2(U,V)).rgb*(A+D+S);
-    else if( object_id == BUNNY )
-        color.rgb = texture(TextureImage0, vec2(U,V)).rgb*(A+D+S);
+        color.rgb = texture(ceu, vec2(U,V)).rgb*(A+D+S);
+    else if( object_id == SKULL )
+    {
+        color.rgb = texture(skull_diff, vec2(U,V)).rgb*D*S;
+        color.a = 0.45f-D.r-D.g-D.b-S.r-S.g-S.b;
+    }
+    else if( object_id == EYE )
+    {
+        color.rgb = vec3(0.1f,0.1f,0.9f)*(0.1-S-3*A);
+        color.a = (-color.b);
+    }
     else if( object_id == PLANE )
-        color.rgb = texture(TextureImage0, vec2(U,V)).rgb*(A+D);
+        color.rgb = texture(chao, vec2(U,V)).rgb*(A+D);
     else if( object_id == FLASHLIGHT )
-        color.rgb = texture(TextureImage2, vec2(U,V)).rgb*(A+A+A);
+        color.rgb = texture(lanterna, vec2(U,V)).rgb*(3*A);
     else if( object_id == REVOLVER )
-        color.rgb = texture(TextureImage2, vec2(U,V)).rgb*(A+D+S);
+        color.rgb = texture(lanterna, vec2(U,V)).rgb*(A+D+S);
+    else if( object_id == BULLET )
+        color.rgb = vec3(1.0f,1.0f,0.0f)*(A+D+S);
     else if( object_id == SCREEN ){
-        color.rgb = texture(TextureImage3, vec2(U,V)).rgb;
+        color.rgb = texture(crosshair, vec2(U,V)).rgb;
         if (color.r < 0.1f)
             discard;
     }
-
-    // NOTE: Se você quiser fazer o rendering de objetos transparentes, é
-    // necessário:
-    // 1) Habilitar a operação de "blending" de OpenGL logo antes de realizar o
-    //    desenho dos objetos transparentes, com os comandos abaixo no código C++:
-    //      glEnable(GL_BLEND);
-    //      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // 2) Realizar o desenho de todos objetos transparentes *após* ter desenhado
-    //    todos os objetos opacos; e
-    // 3) Realizar o desenho de objetos transparentes ordenados de acordo com
-    //    suas distâncias para a câmera (desenhando primeiro objetos
-    //    transparentes que estão mais longe da câmera).
-    // Alpha default = 1 = 100% opaco = 0% transparente
-
-    color.a = 1;
-
     // Cor final com correção gamma, considerando monitor sRGB.
     // Veja https://en.wikipedia.org/w/index.php?title=Gamma_correction&oldid=751281772#Windows.2C_Mac.2C_sRGB_and_TV.2Fvideo_standard_gammas
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);

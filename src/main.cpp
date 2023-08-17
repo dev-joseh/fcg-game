@@ -18,6 +18,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <stdlib.h>     /* srand, rand */
+#include <time.h>       /* time */
 
 // Headers abaixo são específicos de C++
 #include <map>
@@ -105,6 +107,14 @@ struct ObjModel
     }
 };
 
+typedef struct ammo
+{
+    // Variáveis que definem a posição, orientação, tempo de atividade e rotação das balas.
+    glm::vec4 pos, orientacao;
+    float rotacao, timer;
+    bool ativa;
+} AMMO;
+
 typedef struct jogador
 {
     // Variáveis que definem a posição do jogador
@@ -112,6 +122,13 @@ typedef struct jogador
     int vidas;
 } JOGADOR;
 
+typedef struct monstro
+{
+    // Variáveis que definem a posição dos monstros
+    glm::vec4 pos, orientacao;
+    float rotacao;
+    int vidas;
+} MONSTRO;
 
 // Declaração de funções utilizadas para pilha de matrizes de modelagem.
 void PushMatrix(glm::mat4 M);
@@ -229,6 +246,7 @@ bool cursorCentered;
 bool jogador_andando;
 float movimento_crosshair;
 bool lanterna_ligada;
+int bala_atual=0;
 
 // Variáveis que controlam rotação do antebraço
 float g_ForearmAngleZ = 0.0f;
@@ -299,7 +317,7 @@ int main(int argc, char* argv[])
     // pressionar alguma tecla do teclado ...
     glfwSetKeyCallback(window, KeyCallback);
     // ... ou clicar os botões do mouse ...
-    // glfwSetMouseButtonCallback(window, MouseButtonCallback);
+    glfwSetMouseButtonCallback(window, MouseButtonCallback);
     // ... ou movimentar o cursor do mouse em cima da janela ...
     glfwSetCursorPosCallback(window, CursorPosCallback);
     // Centraliza a posição do mouse na tela
@@ -334,36 +352,47 @@ int main(int argc, char* argv[])
     LoadShadersFromFiles();
 
     // Carregamos duas imagens para serem utilizadas como textura
-    LoadTextureImage("../../data/chao.jpg");                         // TextureImage0
-    LoadTextureImage("../../data/ceu.hdr");                          // TextureImage1
-    LoadTextureImage("../../data/Flashlight/flashlight_D.jpg");      // TextureImage2
-    LoadTextureImage("../../data/CrossHair.png");                    // TextureImage3
-    LoadTextureImage("../../data/chao_normal.jpg");                  // TextureImage0_NormalMap
+    LoadTextureImage("../../data/Textures/chao.jpg");                         // chao_diff
+    LoadTextureImage("../../data/Textures/ceu.hdr");                          // ceu
+    LoadTextureImage("../../data/Textures/flashlight_H.jpg");                 // lanterna
+    LoadTextureImage("../../data/Textures/CrossHair.png");                    // crosshair
+    LoadTextureImage("../../data/Textures/chao_normal.jpg");                  // chao_normal
+    LoadTextureImage("../../data/Textures/skull_diff.png");                   // skull_diff
+    LoadTextureImage("../../data/Textures/skull_nm.png");                     // skull_nm
+
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
-    ObjModel spheremodel("../../data/sphere.obj");
+    ObjModel spheremodel("../../data/Objects/sphere.obj");
     ComputeNormals(&spheremodel);
     BuildTrianglesAndAddToVirtualScene(&spheremodel);
 
-    ObjModel bunnymodel("../../data/bunny.obj");
-    ComputeNormals(&bunnymodel);
-    BuildTrianglesAndAddToVirtualScene(&bunnymodel);
-
-    ObjModel planemodel("../../data/plane.obj");
+    ObjModel planemodel("../../data/Objects/plane.obj");
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
 
-    ObjModel flashlightmodel("../../data/Flashlight/flashlight.obj");
+    ObjModel flashlightmodel("../../data/Objects/flashlight.obj");
     ComputeNormals(&flashlightmodel);
     BuildTrianglesAndAddToVirtualScene(&flashlightmodel);
 
-    ObjModel revolvermodel("../../data/revolver.obj");
+    ObjModel revolvermodel("../../data/Objects/revolver.obj");
     ComputeNormals(&revolvermodel);
     BuildTrianglesAndAddToVirtualScene(&revolvermodel);
 
-    ObjModel screenmodel("../../data/CrossHair.obj");
+    ObjModel screenmodel("../../data/Objects/CrossHair.obj");
     ComputeNormals(&screenmodel);
     BuildTrianglesAndAddToVirtualScene(&screenmodel);
+
+    ObjModel skullmodel("../../data/Objects/skull.obj");
+    ComputeNormals(&skullmodel);
+    BuildTrianglesAndAddToVirtualScene(&skullmodel);
+
+    ObjModel eyemodel("../../data/Objects/eye.obj");
+    ComputeNormals(&eyemodel);
+    BuildTrianglesAndAddToVirtualScene(&eyemodel);
+
+    ObjModel bulletmodel("../../data/Objects/bullet.obj");
+    ComputeNormals(&bulletmodel);
+    BuildTrianglesAndAddToVirtualScene(&bulletmodel);
 
     if ( argc > 1 )
     {
@@ -382,10 +411,31 @@ int main(int argc, char* argv[])
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
+    srand(time(NULL));
+
+    # define N_MONSTROS 20
+    # define N_AMMO 6
+
     // Definimos a posição inicial do jogador, da câmera e a quantidade de vidas
     JOGADOR jogador = {{0.0f, 2.0f, 0.0f, 1.0f},{0.0f, 2.0f, 0.0f, 1.0f}, 3};
+
+    // Definimos a matriz monstro que irá guardar informações dos monstros
+    MONSTRO monstro[N_MONSTROS];
+    for(int i=0; i<N_MONSTROS; i++)
+    {
+        monstro[i].pos = {rand()%100, (rand()%10*0.1+0.1)*1.4f, rand()%100,1.0f};
+        monstro[i].orientacao = {0.0f, 0.0f, 0.0f, 0.0f};
+    }
+
+    // Definimos a matriz ammo que irá guardar informações sobre a munição
+    AMMO ammo[N_AMMO];
+    for(int i=0; i<N_AMMO; i++)
+        ammo[i].ativa = false;
+    float cooldown_tiro=0.0f;
+
     // Variável auxiliar no efeito de caminhada
     bool shake_cima=false;
+    bool _fullscreen=false;
 
     // Definir velocidade e tempo para câmera livre
     float speed, speed_base = 3.0f; // Velocidade da câmera
@@ -395,6 +445,7 @@ int main(int argc, char* argv[])
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
+        glfwSetWindowMonitor(window, _fullscreen ? glfwGetPrimaryMonitor() : NULL, 0, 0, 4000, 4000, GLFW_DONT_CARE);
         // Variáveis de tempo
         float current_time = (float)glfwGetTime();
         delta_t = current_time - prev_time;
@@ -437,6 +488,7 @@ int main(int argc, char* argv[])
 
         // A câmera pode sofrer efeitos como shaking durante o dano ou na caminhada, mas isso não irá mudar a posição do jogador.
 
+        // --------------------------------------------------------  JOGADOR  -----------------------------------------------------------
         // Faz o jogador correr quando pressiona SHIFT
         speed = speed_base;
         if (tecla_SHIFT_pressionada)
@@ -468,23 +520,23 @@ int main(int argc, char* argv[])
             if (shake_cima)
             {
                 jogador.camera[1] += 0.1*(speed * delta_t);
-                if(jogador.camera[1]>=jogador.pos[1])
+                if(jogador.camera[1]>=jogador.pos[1]+1.4f)
                     shake_cima = false;
             }
             else
             {
                 jogador.camera[1] -= 0.1*(speed * delta_t);
-                if(jogador.camera[1]<jogador.pos[1]-0.1f)
+                if(jogador.camera[1]<jogador.pos[1]+1.3f)
                     shake_cima = true;
             }
         }
-        else if (jogador.camera[1] < jogador.pos[1] && jogador.pos[1] <= 0.0f)
+        else if (jogador.camera[1] < jogador.pos[1]+1.4f && jogador.pos[1] <= 0.0f)
         {
             jogador.camera[1] += 0.1*(speed * delta_t);
             shake_cima = false;
         }
         else
-            jogador.camera[1] = jogador.pos[1];
+            jogador.camera[1] = jogador.pos[1]+1.4f;
 
         // Gravidade (reduz a velocidade em Y gradualmente com o tempo até chegar no chão
         if (jogador.pos[1] > 0.0f)
@@ -514,6 +566,43 @@ int main(int argc, char* argv[])
         // O eixo z da câmera sempre é igual ao eixo da posição do jogador
         jogador.camera[0] = jogador.pos[0];
         jogador.camera[2] = jogador.pos[2];
+
+        // ---------------------------------------------------------  AMMO  -------------------------------------------------------------
+
+        // Atirar ativa a bala atual, zerando seu timer de atividade e avançando para a próxima bala
+        cooldown_tiro += delta_t;
+        if(cooldown_tiro >= 0.2f)
+            if(g_LeftMouseButtonPressed)
+            {
+                for(int i=0; i<N_AMMO; i++)
+                    if(ammo[bala_atual].ativa==false)
+                    {
+                        ammo[bala_atual].ativa=true;
+                        ammo[bala_atual].timer=0;
+                        bala_atual=++bala_atual%N_AMMO;
+                        ammo[bala_atual].pos = jogador.camera-vw*0.05f+vu*0.05f;
+                        ammo[bala_atual].orientacao = normalize((ammo[bala_atual].pos-vu*0.05f) - jogador.camera);
+                        ammo[bala_atual].rotacao = atan2(ammo[bala_atual].orientacao.x, ammo[bala_atual].orientacao.z);
+                        cooldown_tiro = 0.0f;
+                        break;
+                    }
+                    else
+                        bala_atual=++bala_atual%N_AMMO;
+            }
+
+        // --------------------------------------------------------  MONSTRO  -----------------------------------------------------------
+
+        for(int i=0; i<N_MONSTROS; i++)
+        {
+            // Faz o monstro estar sempre olhando para o jogador
+            monstro[i].orientacao = normalize(monstro[i].pos - jogador.pos);
+            // Usado para a matriz de rotação do monstro
+            monstro[i].rotacao = atan2(monstro[i].orientacao.x, monstro[i].orientacao.z) + 3.14f;
+            // Move o monstro em direção ao jogador
+            monstro[i].pos -= monstro[i].orientacao * speed_base * delta_t * glm::vec4(1.0f,0.0f,1.0f,0.0f);
+        }
+
+
         // Computamos a matriz "View" utilizando os parâmetros da câmera para definir o sistema de coordenadas da câmera.
         glm::mat4 view = Matrix_Camera_View(jogador.camera, camera_view_vector, vv);
 
@@ -523,7 +612,7 @@ int main(int argc, char* argv[])
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -30.0f; // Posição do "far plane"
+        float farplane  = -45.0f; // Posição do "far plane"
 
         if (g_UsePerspectiveProjection)
         {
@@ -555,44 +644,87 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
         #define SPHERE 0
-        #define BUNNY  1
+        #define BULLET 1
         #define PLANE  2
         #define FLASHLIGHT  3
         #define REVOLVER  4
         #define SCREEN  5
+        #define SKULL  6
+        #define EYE  7
 
-        // -- Skybox --
+
+        // SPHERE
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
-
         model = Matrix_Translate(jogador.camera[0], jogador.camera[1], jogador.camera[2]);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, SPHERE);
         DrawVirtualObject("the_sphere");
-
         glEnable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
 
-        // -- Chão --
-        model = Matrix_Translate(0.0f, -1.4f, 0.0f)
+        // PLANE
+        model = Matrix_Translate(0.0f, 0.0f, 0.0f)
               * Matrix_Scale(350.0f,1.0f,350.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
         DrawVirtualObject("the_plane");
 
-        // Desenhamos o modelo do coelho
-        model = Matrix_Translate(1.0f,0.0f,0.0f)
-              * Matrix_Rotate_X(g_AngleX + (float)glfwGetTime() * 0.1f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, BUNNY);
-        DrawVirtualObject("the_bunny");
+        // BULLET
+        for(int i=0; i<N_AMMO; i++)
+            if(ammo[i].ativa)
+            {
+                model = Matrix_Translate(ammo[i].pos.x, ammo[i].pos.y, ammo[i].pos.z)
+                      * Matrix_Scale(0.04f,0.04f,0.04f)
+                      * Matrix_Rotate_Y(ammo[i].rotacao)
+                      * Matrix_Rotate_X(3.14/2);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, BULLET);
+                DrawVirtualObject("45_ACP_Low_Poly");
+            }
+        // Para cada bala, testa se está ativa, se sim, incrementa seu timer e sua posicao e testa se seu tempo de atividade expirou
+        for(int i=0; i<N_AMMO; i++)
+        {
+            if(ammo[i].ativa == true)
+            {
+                ammo[i].timer += delta_t;
+                ammo[i].pos += ammo[i].orientacao * speed_base * 30.0f * delta_t;
+                if(ammo[i].timer >= 1)
+                    ammo[i].ativa=false;
+            }
+        }
 
-        // Desenhamos a lanterna (BUG: Desenhar a lanterna com o Z-Buffer desligado faz com que alguns fragmentos da parte de trás
-        // se sobreponham em cima dos da parte da frente.
-        glClear(GL_DEPTH_BUFFER_BIT);
-        glm::vec3 item_pos = glm::vec3(0.0f,(jogador.camera[1]-jogador.pos[1])*0.2f,-0.6f);
-        // Resetamos a matriz View para que a lanterna não se movimente na tela.
+        // SKULL & EYE
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        for(int i=0; i<N_MONSTROS; i++)
+        {
+            model = Matrix_Translate(monstro[i].pos[0], monstro[i].pos[1], monstro[i].pos[2])
+                  * Matrix_Rotate_Y(monstro[i].rotacao)
+                  * Matrix_Scale(0.02f, 0.02f, 0.02f);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, SKULL);
+            DrawVirtualObject("skull");
+            PushMatrix(model);
+                model = model * Matrix_Translate(-3.2f, 1.4f, 9.0f)
+                              * Matrix_Rotate_X(3.14/2);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, EYE);
+                DrawVirtualObject("eye");
+                model = model * Matrix_Translate(6.4f, 0.0f, 0.f);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, EYE);
+                DrawVirtualObject("eye");
+            PopMatrix(model);
+        }
+
+        // Resetamos a matriz View para que os objetos carregados pelo jogador não se movimentem na tela.
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
+        // A posição dos objetos irá se mover conforme o jogador caminha
+        glm::vec3 item_pos = glm::vec3(0.0f,(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f,-0.6f);
+
+        // FLASHLIGHT
+        glClear(GL_DEPTH_BUFFER_BIT);
         model = Matrix_Translate(item_pos[0]-0.6f, item_pos[1]-0.4f, item_pos[2])
             * Matrix_Scale(0.01f,0.01f,0.01f)
             * Matrix_Rotate_X(3.14);
@@ -600,8 +732,7 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, FLASHLIGHT);
         DrawVirtualObject("the_light");
 
-
-        // Resetamos a matriz View para que a lanterna não se movimente na tela.
+        // REVOLVER
         model = Matrix_Translate(item_pos[0]+0.6f, -item_pos[1]-0.4f, item_pos[2]-0.6f)
             * Matrix_Scale(0.002f,0.002f,0.002f)
             * Matrix_Rotate_Y(-3.14/2);
@@ -615,7 +746,7 @@ int main(int argc, char* argv[])
         DrawVirtualObject("Chamber");
         DrawVirtualObject("Barrel");
 
-        // ------------------------------------- CrossHair
+        // SCREEN
         glDisable(GL_DEPTH_TEST);
         model = Matrix_Translate(0.0f,0.0f,-2.0f)
             * Matrix_Scale(0.1f,0.1f,1.0f)
@@ -624,7 +755,6 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, SCREEN);
         DrawVirtualObject("the_aim");
         glEnable(GL_DEPTH_TEST);
-        // ------------------------------------- CrossHair
 
 
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
@@ -790,11 +920,13 @@ void LoadShadersFromFiles()
 
     // Variáveis em "shader_fragment.glsl" para acesso das imagens de textura
     glUseProgram(g_GpuProgramID);
-    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage0"), 0);
-    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage1"), 1);
-    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage2"), 2);
-    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage3"), 3);
-    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage0_NormalMap"), 4);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "chao"), 0);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "ceu"), 1);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "lanterna"), 2);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "crosshair"), 3);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "chao_normal"), 4);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "skull_diff"), 5);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "skull_nm"), 6);
 
     glUseProgram(0);
 }
@@ -1203,21 +1335,12 @@ void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 // Função callback chamada sempre que o usuário aperta algum dos botões do mouse
 void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
-    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
     {
-        // Se o usuário pressionou o botão esquerdo do mouse, guardamos a
-        // posição atual do cursor nas variáveis g_LastCursorPosX e
-        // g_LastCursorPosY.  Também, setamos a variável
-        // g_LeftMouseButtonPressed como true, para saber que o usuário está
-        // com o botão esquerdo pressionado.
-        glfwGetCursorPos(window, &g_LastCursorPosX, &g_LastCursorPosY);
-        g_LeftMouseButtonPressed = true;
-    }
-    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
-    {
-        // Quando o usuário soltar o botão esquerdo do mouse, atualizamos a
-        // variável abaixo para false.
-        g_LeftMouseButtonPressed = false;
+        if (action == GLFW_PRESS)
+            g_LeftMouseButtonPressed = true;
+        else if (action == GLFW_RELEASE)
+            g_LeftMouseButtonPressed = false;
     }
 }
 
@@ -1283,7 +1406,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_W_pressionada = true;
         else if (action == GLFW_RELEASE)
             tecla_W_pressionada = false;
-        else if (action == GLFW_REPEAT);
     }
 
     if (key == GLFW_KEY_A)
@@ -1292,7 +1414,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_A_pressionada = true;
         else if (action == GLFW_RELEASE)
             tecla_A_pressionada = false;
-        else if (action == GLFW_REPEAT);
     }
 
     if (key == GLFW_KEY_S)
@@ -1301,7 +1422,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_S_pressionada = true;
         else if (action == GLFW_RELEASE)
             tecla_S_pressionada = false;
-        else if (action == GLFW_REPEAT);
     }
 
     if (key == GLFW_KEY_D)
@@ -1310,7 +1430,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_D_pressionada = true;
         else if (action == GLFW_RELEASE)
             tecla_D_pressionada = false;
-        else if (action == GLFW_REPEAT);
     }
 
         if (key == GLFW_KEY_E)
@@ -1328,7 +1447,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_SHIFT_pressionada = true;
         else if (action == GLFW_RELEASE)
             tecla_SHIFT_pressionada = false;
-        else if (action == GLFW_REPEAT);
     }
 
     // Se o usuário pressionar SPACE, o personagem pula
@@ -1338,7 +1456,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_SPACE_pressionada = true;
         else if (action == GLFW_RELEASE)
             tecla_SPACE_pressionada = false;
-        else if (action == GLFW_REPEAT);
     }
 
     // Se o usuário pressionar a tecla ESC, fechamos a janela.
