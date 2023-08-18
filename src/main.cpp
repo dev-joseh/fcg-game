@@ -120,6 +120,7 @@ typedef struct jogador
     // Variáveis que definem a posição do jogador
     glm::vec4 pos, camera;
     int vidas;
+    int ammo;
 } JOGADOR;
 
 typedef struct monstro
@@ -152,12 +153,14 @@ void PrintObjModelInfo(ObjModel*); // Função para debugging
 void TextRendering_Init();
 float TextRendering_LineHeight(GLFWwindow* window);
 float TextRendering_CharWidth(GLFWwindow* window);
+void TextRendering_ShowAMMO(GLFWwindow* window, int ammo);
 void TextRendering_PrintString(GLFWwindow* window, const std::string &str, float x, float y, float scale = 1.0f);
 void TextRendering_PrintMatrix(GLFWwindow* window, glm::mat4 M, float x, float y, float scale = 1.0f);
 void TextRendering_PrintVector(GLFWwindow* window, glm::vec4 v, float x, float y, float scale = 1.0f);
 void TextRendering_PrintMatrixVectorProduct(GLFWwindow* window, glm::mat4 M, glm::vec4 v, float x, float y, float scale = 1.0f);
 void TextRendering_PrintMatrixVectorProductMoreDigits(GLFWwindow* window, glm::mat4 M, glm::vec4 v, float x, float y, float scale = 1.0f);
 void TextRendering_PrintMatrixVectorProductDivW(GLFWwindow* window, glm::mat4 M, glm::vec4 v, float x, float y, float scale = 1.0f);
+
 
 // Funções abaixo renderizam como texto na janela OpenGL algumas matrizes e
 // outras informações do programa. Definidas após main().
@@ -224,14 +227,15 @@ float g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
 float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
 float g_CameraDistance = 3.5f; // Distância da câmera para a origem
 
-// ------ Variáveis para movimento do jogador
+// ------ Variáveis para comandos do jogador
 float delta_t;
 
 bool tecla_W_pressionada = false;
 bool tecla_A_pressionada = false;
 bool tecla_S_pressionada = false;
 bool tecla_D_pressionada = false;
-bool tecla_E_pressionada = false;     // Lanterna (ligar/desligar)
+bool tecla_F_pressionada = false;     // Lanterna (ligar/desligar)
+bool tecla_R_pressionada = false;     // Recarrega arma
 bool tecla_SPACE_pressionada = false; // Pulo
 bool tecla_SHIFT_pressionada = false; // Corrida
 
@@ -247,6 +251,7 @@ bool jogador_andando;
 float movimento_crosshair;
 bool lanterna_ligada;
 int bala_atual=0;
+bool reload_active = false;
 
 // Variáveis que controlam rotação do antebraço
 float g_ForearmAngleZ = 0.0f;
@@ -413,11 +418,11 @@ int main(int argc, char* argv[])
 
     srand(time(NULL));
 
-    # define N_MONSTROS 20
+    # define N_MONSTROS 35
     # define N_AMMO 6
 
-    // Definimos a posição inicial do jogador, da câmera e a quantidade de vidas
-    JOGADOR jogador = {{0.0f, 2.0f, 0.0f, 1.0f},{0.0f, 2.0f, 0.0f, 1.0f}, 3};
+    // Definimos a posição inicial do jogador, da câmera e a quantidade de vidas e munições
+    JOGADOR jogador = {{0.0f, 2.0f, 0.0f, 1.0f},{0.0f, 2.0f, 0.0f, 1.0f}, 3, 6};
 
     // Definimos a matriz monstro que irá guardar informações dos monstros
     MONSTRO monstro[N_MONSTROS];
@@ -431,7 +436,9 @@ int main(int argc, char* argv[])
     AMMO ammo[N_AMMO];
     for(int i=0; i<N_AMMO; i++)
         ammo[i].ativa = false;
-    float cooldown_tiro=0.0f;
+    float cooldown_tiro = 0.0f; // Atraso entre cada tiro
+    float reload_delay = 0.0f;  // Atraso entre o recarregamento de cada bala
+    float reload_move = 0.0f;   // Movimento do revolver durante o recarregamento
 
     // Variável auxiliar no efeito de caminhada
     bool shake_cima=false;
@@ -489,9 +496,9 @@ int main(int argc, char* argv[])
         // A câmera pode sofrer efeitos como shaking durante o dano ou na caminhada, mas isso não irá mudar a posição do jogador.
 
         // --------------------------------------------------------  JOGADOR  -----------------------------------------------------------
-        // Faz o jogador correr quando pressiona SHIFT
+        // Faz o jogador correr quando pressiona SHIFT e não está recarregando
         speed = speed_base;
-        if (tecla_SHIFT_pressionada)
+        if (tecla_SHIFT_pressionada&&reload_active==false)
         {
             speed = speed_base*2;
         }
@@ -555,7 +562,7 @@ int main(int argc, char* argv[])
         jogador.pos[1] += Yspeed*delta_t;
 
         // Ligar/Desligar lanterna
-        if(tecla_E_pressionada)
+        if(tecla_F_pressionada)
             lanterna_ligada = false;
         else
             lanterna_ligada = true;
@@ -569,15 +576,43 @@ int main(int argc, char* argv[])
 
         // ---------------------------------------------------------  AMMO  -------------------------------------------------------------
 
+        #define RELOAD_ANIMATION 0.6f
+        #define RELOAD_SPEED 0.5f
+        // Se estiver com a munição cheia, termina o reload
+        if(reload_active&&jogador.ammo<6)
+        {
+            // Animação de reload
+            if((reload_move >= -RELOAD_ANIMATION&&jogador.ammo<5))
+                reload_move -= RELOAD_ANIMATION * 3 * delta_t;
+
+            // Atraso de reload para cada bala
+            reload_delay += delta_t;
+            if(reload_delay >= RELOAD_SPEED)
+            {
+                jogador.ammo++;
+                reload_delay = 0.0f;
+            }
+        }
+        else
+        {
+            if(jogador.ammo==6&&reload_move<-0.0001f)
+                reload_move += RELOAD_ANIMATION * 3 * delta_t;
+            reload_active = false;
+            if(tecla_R_pressionada)
+                reload_active = true;
+        }
+
+
         // Atirar ativa a bala atual, zerando seu timer de atividade e avançando para a próxima bala
         cooldown_tiro += delta_t;
-        if(cooldown_tiro >= 0.2f)
+        if(cooldown_tiro >= 0.2f&&reload_active==false)
             if(g_LeftMouseButtonPressed)
             {
                 for(int i=0; i<N_AMMO; i++)
-                    if(ammo[bala_atual].ativa==false)
+                    if(ammo[bala_atual].ativa==false&&jogador.ammo>0)
                     {
                         ammo[bala_atual].ativa=true;
+                        jogador.ammo--;
                         ammo[bala_atual].timer=0;
                         bala_atual=++bala_atual%N_AMMO;
                         ammo[bala_atual].pos = jogador.camera-vw*0.05f+vu*0.05f;
@@ -589,6 +624,18 @@ int main(int argc, char* argv[])
                     else
                         bala_atual=++bala_atual%N_AMMO;
             }
+
+        // Para cada bala, testa se está ativa, se sim, incrementa seu timer e sua posicao e testa se seu tempo de atividade expirou
+        for(int i=0; i<N_AMMO; i++)
+        {
+            if(ammo[i].ativa == true)
+            {
+                ammo[i].timer += delta_t;
+                ammo[i].pos += ammo[i].orientacao * speed_base * 10.0f * delta_t;
+                if(ammo[i].timer >= 1)
+                    ammo[i].ativa=false;
+            }
+        }
 
         // --------------------------------------------------------  MONSTRO  -----------------------------------------------------------
 
@@ -682,17 +729,6 @@ int main(int argc, char* argv[])
                 glUniform1i(g_object_id_uniform, BULLET);
                 DrawVirtualObject("45_ACP_Low_Poly");
             }
-        // Para cada bala, testa se está ativa, se sim, incrementa seu timer e sua posicao e testa se seu tempo de atividade expirou
-        for(int i=0; i<N_AMMO; i++)
-        {
-            if(ammo[i].ativa == true)
-            {
-                ammo[i].timer += delta_t;
-                ammo[i].pos += ammo[i].orientacao * speed_base * 30.0f * delta_t;
-                if(ammo[i].timer >= 1)
-                    ammo[i].ativa=false;
-            }
-        }
 
         // SKULL & EYE
         glEnable(GL_BLEND);
@@ -720,12 +756,14 @@ int main(int argc, char* argv[])
 
         // Resetamos a matriz View para que os objetos carregados pelo jogador não se movimentem na tela.
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
-        // A posição dos objetos irá se mover conforme o jogador caminha
-        glm::vec3 item_pos = glm::vec3(0.0f,(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f,-0.6f);
+
+        // A posição dos objetos irá se mover conforme o jogador caminha ou recarrega a arma
+        glm::vec3 lanterna_pos = glm::vec3(0.0f,(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f,-0.6f);
+        glm::vec3 revolver_pos = glm::vec3(+0.6f,-(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f-0.4f+reload_move,-1.2f);
 
         // FLASHLIGHT
         glClear(GL_DEPTH_BUFFER_BIT);
-        model = Matrix_Translate(item_pos[0]-0.6f, item_pos[1]-0.4f, item_pos[2])
+        model = Matrix_Translate(lanterna_pos[0]-0.6f, lanterna_pos[1]-0.4f, lanterna_pos[2])
             * Matrix_Scale(0.01f,0.01f,0.01f)
             * Matrix_Rotate_X(3.14);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
@@ -733,8 +771,9 @@ int main(int argc, char* argv[])
         DrawVirtualObject("the_light");
 
         // REVOLVER
-        model = Matrix_Translate(item_pos[0]+0.6f, -item_pos[1]-0.4f, item_pos[2]-0.6f)
+        model = Matrix_Translate(revolver_pos[0], revolver_pos[1], revolver_pos[2])
             * Matrix_Scale(0.002f,0.002f,0.002f)
+            * Matrix_Rotate_X(reload_move*2)
             * Matrix_Rotate_Y(-3.14/2);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, REVOLVER);
@@ -756,6 +795,8 @@ int main(int argc, char* argv[])
         DrawVirtualObject("the_aim");
         glEnable(GL_DEPTH_TEST);
 
+        // Imprimimos a quantidade de munição que o jogador possui
+        TextRendering_ShowAMMO(window, jogador.ammo);
 
         // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
         TextRendering_ShowProjection(window);
@@ -1432,12 +1473,20 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_D_pressionada = false;
     }
 
-        if (key == GLFW_KEY_E)
+        if (key == GLFW_KEY_F)
     {
-        if (action == GLFW_PRESS && tecla_E_pressionada == false)
-            tecla_E_pressionada = true;
-        else if (action == GLFW_PRESS && tecla_E_pressionada == true)
-            tecla_E_pressionada = false;
+        if (action == GLFW_PRESS && tecla_F_pressionada == false)
+            tecla_F_pressionada = true;
+        else if (action == GLFW_PRESS && tecla_F_pressionada == true)
+            tecla_F_pressionada = false;
+    }
+
+    if (key == GLFW_KEY_R)
+    {
+        if (action == GLFW_PRESS)
+            tecla_R_pressionada = true;
+        else if (action == GLFW_RELEASE)
+            tecla_R_pressionada = false;
     }
 
     // Se o usuário pressionar SHIFT, a velocidade de movimento aumenta
@@ -1478,14 +1527,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_H && action == GLFW_PRESS)
     {
         g_ShowInfoText = !g_ShowInfoText;
-    }
-
-    // Se o usuário apertar a tecla R, recarregamos os shaders dos arquivos "shader_fragment.glsl" e "shader_vertex.glsl".
-    if (key == GLFW_KEY_R && action == GLFW_PRESS)
-    {
-        LoadShadersFromFiles();
-        fprintf(stdout,"Shaders recarregados!\n");
-        fflush(stdout);
     }
 }
 
@@ -1626,6 +1667,24 @@ void TextRendering_ShowSecondsEllapsed(GLFWwindow* window)
     float charwidth = TextRendering_CharWidth(window);
 
     TextRendering_PrintString(window, buffer, -0.85f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
+}
+
+// Escrevemos na tela o número de segundos passados desde o início.
+void TextRendering_ShowAMMO(GLFWwindow* window, int ammo)
+{
+    if ( !g_ShowInfoText )
+        return;
+
+    static int   numchars = 7;
+
+    char buffer[20] = "AMMO: ?";
+
+    numchars = snprintf(buffer, 20, "AMMO: %d", ammo);
+
+    float lineheight = TextRendering_LineHeight(window);
+    float charwidth = TextRendering_CharWidth(window);
+
+    TextRendering_PrintString(window, buffer, -0.85f-(numchars + 1)*charwidth, -1.0f+lineheight, 1.0f);
 }
 
 // Função para debugging: imprime no terminal todas informações de um modelo
