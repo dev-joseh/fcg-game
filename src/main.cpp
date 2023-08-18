@@ -288,6 +288,7 @@ GLint g_bbox_max_uniform;
 // Variáveis que eu criei para enviar para o fragment shader
 GLint lanterna_ligada_uniform;
 GLint smoke_life_uniform;
+GLint nozzle_flash_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
@@ -651,6 +652,11 @@ int main(int argc, char* argv[])
                     else
                         bala_atual=++bala_atual%N_AMMO;
             }
+
+        if(cooldown_tiro <= 0.1)
+            glUniform1i(nozzle_flash_uniform, 1);
+        else
+            glUniform1i(nozzle_flash_uniform, 0);
 
         // Para cada bala, testa se está ativa, se sim, incrementa seu timer e sua posicao e testa se seu tempo de atividade expirou, se estiver inativa, reseta seus
         // parâmetros
@@ -1048,6 +1054,7 @@ void LoadShadersFromFiles()
     g_bbox_max_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_max");
     lanterna_ligada_uniform = glGetUniformLocation(g_GpuProgramID, "lanterna_ligada"); // Variável usada para ligar ou desligar a lanterna
     smoke_life_uniform = glGetUniformLocation(g_GpuProgramID, "smoke_life"); // Variável usada para definir a textura das partículas de fumaça
+    nozzle_flash_uniform = glGetUniformLocation(g_GpuProgramID, "nozzle_flash");
 
     // Variáveis em "shader_fragment.glsl" para acesso das imagens de textura
     glUseProgram(g_GpuProgramID);

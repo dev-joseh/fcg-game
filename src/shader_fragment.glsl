@@ -60,6 +60,7 @@ float luz_lanterna(vec4 l, vec4 sv, float potencia);
 uniform int lanterna_ligada;
 uniform int smoke_life;
 int potencia_lanterna;
+uniform int nozzle_flash;
 
 // Constantes
 #define M_PI   3.14159265358979323846
@@ -193,9 +194,9 @@ void main()
         U = texcoords.x;
         V = texcoords.y;
         // Propriedades espectrais da caveira
-        Kd = vec3(0.3,0.3,0.3);
-        Ks = vec3(0.3,0.3,0.3);
-        Ka = vec3(0.01,0.01,0.01);
+        Kd = vec3(0.8,0.8,0.8);
+        Ks = vec3(0.8,0.8,0.8);
+        Ka = vec3(1,1,1);
         q = 25.0;
     }
         else if ( object_id == EYE )
@@ -250,32 +251,33 @@ void main()
     else
         potencia_lanterna = 0;
 
-    // Define a iluminação dos objetos (A = Ambiente, D = Difusa, S = Difusa + Especular)
+    // Define a iluminação dos objetos pela lanterna (A = Ambiente, D = Difusa, S = Difusa + Especular)
     vec3 A = ambient_term;
     vec3 D = lambert_diffuse_term * 0.5 * luz_lanterna(l, sv, potencia_lanterna);
     vec3 S = (lambert_diffuse_term * 0.5 + phong_specular_term) * luz_lanterna(l, sv, potencia_lanterna);
+    vec3 NF = ambient_term*nozzle_flash*5;
 
     // Define a textura de cada objeto
     color.a = 1;
 
     if( object_id == SPHERE )
-        color.rgb = texture(ceu, vec2(U,V)).rgb*(A+D+S);
+        color.rgb = texture(ceu, vec2(U,V)).rgb*(2*A);
     else if( object_id == SKULL )
     {
-        color.rgb = texture(skull_diff, vec2(U,V)).rgb*D*S;
-        color.a = 0.45f-D.r-D.g-D.b-S.r-S.g-S.b;
+        color.rgb = texture(skull_diff, vec2(U,V)).rgb*NF;
+        color.a = nozzle_flash+0.2*luz_lanterna(l, sv, potencia_lanterna);
     }
     else if( object_id == EYE )
     {
-        color.rgb = vec3(0.1f,0.1f,0.9f)*(0.1-S-3*A);
-        color.a = (-color.b);
+        color.rgb = vec3(0.1f,0.1f,0.9f)*(0.1-S-D);
+        color.a = 1-nozzle_flash;
     }
     else if( object_id == PLANE )
-        color.rgb = texture(chao, vec2(U,V)).rgb*(A+D);
+        color.rgb = texture(chao, vec2(U,V)).rgb*(A+D+NF);
     else if( object_id == FLASHLIGHT )
-        color.rgb = texture(lanterna, vec2(U,V)).rgb*(3*A);
+        color.rgb = texture(lanterna, vec2(U,V)).rgb*(3*A+NF);
     else if( object_id == REVOLVER )
-        color.rgb = texture(lanterna, vec2(U,V)).rgb*(A+D+S);
+        color.rgb = texture(lanterna, vec2(U,V)).rgb*(A+D+S+NF);
     else if( object_id == BULLET )
         color.rgb = vec3(1.0f,1.0f,0.0f)*(A+D+S);
     else if( object_id == SMOKE )
