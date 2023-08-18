@@ -131,6 +131,16 @@ typedef struct monstro
     int vidas;
 } MONSTRO;
 
+typedef struct Particle {
+    glm::vec2 pos, vel;
+    glm::vec4 color;
+    int     life;
+    float scale;
+
+    Particle()
+      : pos(0.0f), vel(0.0f), color(1.0f), life(0.0f), scale(1.0) {}
+} PARTICLE;
+
 // Declaração de funções utilizadas para pilha de matrizes de modelagem.
 void PushMatrix(glm::mat4 M);
 void PopMatrix(glm::mat4& M);
@@ -277,6 +287,7 @@ GLint g_bbox_min_uniform;
 GLint g_bbox_max_uniform;
 // Variáveis que eu criei para enviar para o fragment shader
 GLint lanterna_ligada_uniform;
+GLint smoke_life_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
@@ -364,6 +375,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/Textures/chao_normal.jpg");                  // chao_normal
     LoadTextureImage("../../data/Textures/skull_diff.png");                   // skull_diff
     LoadTextureImage("../../data/Textures/skull_nm.png");                     // skull_nm
+    LoadTextureImage("../../data/Textures/smoke.png");                        // smoke
 
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
@@ -383,7 +395,7 @@ int main(int argc, char* argv[])
     ComputeNormals(&revolvermodel);
     BuildTrianglesAndAddToVirtualScene(&revolvermodel);
 
-    ObjModel screenmodel("../../data/Objects/CrossHair.obj");
+    ObjModel screenmodel("../../data/Objects/screen.obj");
     ComputeNormals(&screenmodel);
     BuildTrianglesAndAddToVirtualScene(&screenmodel);
 
@@ -439,8 +451,16 @@ int main(int argc, char* argv[])
     float cooldown_tiro = 0.0f; // Atraso entre cada tiro
     float reload_delay = 0.0f;  // Atraso entre o recarregamento de cada bala
     float reload_move = 0.0f;   // Movimento do revolver durante o recarregamento
+    float recoil = 0.0f;        // Movimento do revolver durante o recuo do tiro
+    bool recoil_active = false;
 
-    // Variável auxiliar no efeito de caminhada
+    // Definimos variáveis de partícula
+    #define SMOKE_P_COUNT 6
+    PARTICLE smoke[SMOKE_P_COUNT];
+    bool smoke_active=false;
+    float smoke_timer=0.0f;
+
+    // Variáveis auxiliares no efeito de caminhada
     bool shake_cima=false;
     bool _fullscreen=false;
 
@@ -574,6 +594,11 @@ int main(int argc, char* argv[])
         jogador.camera[0] = jogador.pos[0];
         jogador.camera[2] = jogador.pos[2];
 
+
+        // A posição dos objetos irá se mover conforme o jogador caminha ou recarrega a arma
+        glm::vec3 lanterna_pos = glm::vec3(0.0f,(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f,-0.6f);
+        glm::vec3 revolver_pos = glm::vec3(+0.6f,-(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f-0.4f+reload_move+recoil,-1.2f);
+
         // ---------------------------------------------------------  AMMO  -------------------------------------------------------------
 
         #define RELOAD_ANIMATION 0.6f
@@ -605,7 +630,7 @@ int main(int argc, char* argv[])
 
         // Atirar ativa a bala atual, zerando seu timer de atividade e avançando para a próxima bala
         cooldown_tiro += delta_t;
-        if(cooldown_tiro >= 0.2f&&reload_active==false)
+        if(cooldown_tiro >= 0.4f&&reload_active==false)
             if(g_LeftMouseButtonPressed)
             {
                 for(int i=0; i<N_AMMO; i++)
@@ -613,29 +638,83 @@ int main(int argc, char* argv[])
                     {
                         ammo[bala_atual].ativa=true;
                         jogador.ammo--;
+                        smoke_active = true;
+                        recoil_active = true;
                         ammo[bala_atual].timer=0;
-                        bala_atual=++bala_atual%N_AMMO;
-                        ammo[bala_atual].pos = jogador.camera-vw*0.05f+vu*0.05f;
-                        ammo[bala_atual].orientacao = normalize((ammo[bala_atual].pos-vu*0.05f) - jogador.camera);
+                        ammo[bala_atual].pos = jogador.camera-vw*0.05f+vu*0.06f;
+                        ammo[bala_atual].orientacao = normalize((ammo[bala_atual].pos-vu*0.0605f) - jogador.camera);
                         ammo[bala_atual].rotacao = atan2(ammo[bala_atual].orientacao.x, ammo[bala_atual].orientacao.z);
                         cooldown_tiro = 0.0f;
+                        bala_atual=++bala_atual%N_AMMO;
                         break;
                     }
                     else
                         bala_atual=++bala_atual%N_AMMO;
             }
 
-        // Para cada bala, testa se está ativa, se sim, incrementa seu timer e sua posicao e testa se seu tempo de atividade expirou
+        // Para cada bala, testa se está ativa, se sim, incrementa seu timer e sua posicao e testa se seu tempo de atividade expirou, se estiver inativa, reseta seus
+        // parâmetros
         for(int i=0; i<N_AMMO; i++)
         {
             if(ammo[i].ativa == true)
             {
                 ammo[i].timer += delta_t;
-                ammo[i].pos += ammo[i].orientacao * speed_base * 10.0f * delta_t;
+                ammo[i].pos += ammo[i].orientacao * 30.0f * delta_t;
                 if(ammo[i].timer >= 1)
                     ammo[i].ativa=false;
             }
         }
+
+        #define RECOIL_ANIMATION 0.6f
+        // Animação de recuo da arma
+        if(recoil_active)
+        {
+            if(cooldown_tiro < 0.2f)
+                recoil += RECOIL_ANIMATION * delta_t;
+            else
+            {
+                recoil -= RECOIL_ANIMATION * delta_t;
+                if(cooldown_tiro >= 0.4f)
+                {
+                    recoil_active=false;
+                    recoil = 0.0f;
+                }
+            }
+        }
+
+        // ========= SMOKE PARTICLES =========
+        if(smoke_active)
+        {
+            // Inicializa a direção das partículas aleatoriamente
+            if(smoke_timer == 0.0f)
+                for(int i=0; i<SMOKE_P_COUNT; i++)
+                {
+                    smoke[i].pos[0] = revolver_pos[0]+0.1f;
+                    smoke[i].pos[1] = revolver_pos[1]+0.2f;
+                    // 8 possíveis direções estão entre [0, 2*PI]
+                    float direcao = (rand()%8)*(2*3.14/8);
+                    smoke[i].vel = {cos(direcao),sin(direcao)};
+                    smoke[i].scale = 1.0f;
+                }
+
+            // Incrementa o timer que define o tempo de vida da particula
+            smoke_timer += delta_t;
+
+            for(int i=0; i<SMOKE_P_COUNT; i++)
+            {
+                // Essa variável define qual textura (de 40) que será mostrada no momento
+                smoke[i].life = int(smoke_timer*125);
+                // Movimenta a particula na tela
+                smoke[i].pos += smoke[i].vel*delta_t*0.3f;
+                smoke[i].scale += smoke[i].scale*(2)*delta_t;
+            }
+            if(smoke_timer >= 0.4f)
+            {
+                smoke_timer = 0.0f;
+                smoke_active = false;
+            }
+        }
+
 
         // --------------------------------------------------------  MONSTRO  -----------------------------------------------------------
 
@@ -698,7 +777,7 @@ int main(int argc, char* argv[])
         #define SCREEN  5
         #define SKULL  6
         #define EYE  7
-
+        #define SMOKE  8
 
         // SPHERE
         glDisable(GL_DEPTH_TEST);
@@ -754,15 +833,25 @@ int main(int argc, char* argv[])
             PopMatrix(model);
         }
 
-        // Resetamos a matriz View para que os objetos carregados pelo jogador não se movimentem na tela.
+        // Resetamos a matriz View para que os objetos carregados a partir daqui não se movimentem na tela.
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
 
-        // A posição dos objetos irá se mover conforme o jogador caminha ou recarrega a arma
-        glm::vec3 lanterna_pos = glm::vec3(0.0f,(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f,-0.6f);
-        glm::vec3 revolver_pos = glm::vec3(+0.6f,-(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f-0.4f+reload_move,-1.2f);
+        // SMOKE
+        glClear(GL_DEPTH_BUFFER_BIT);
+        if(smoke_active)
+            for(int i=0; i<SMOKE_P_COUNT; i++)
+            {
+                model = Matrix_Translate(smoke[i].pos[0],smoke[i].pos[1]+recoil,-2.0f)
+                      * Matrix_Scale(smoke[i].scale,smoke[i].scale,1.0f)
+                      * Matrix_Scale(0.1f,0.1f,1.0f)
+                      * Matrix_Rotate_X(3.14/2);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, SMOKE);
+                glUniform1i(smoke_life_uniform, smoke[i].life);
+                DrawVirtualObject("the_screen");
+            }
 
         // FLASHLIGHT
-        glClear(GL_DEPTH_BUFFER_BIT);
         model = Matrix_Translate(lanterna_pos[0]-0.6f, lanterna_pos[1]-0.4f, lanterna_pos[2])
             * Matrix_Scale(0.01f,0.01f,0.01f)
             * Matrix_Rotate_X(3.14);
@@ -773,7 +862,7 @@ int main(int argc, char* argv[])
         // REVOLVER
         model = Matrix_Translate(revolver_pos[0], revolver_pos[1], revolver_pos[2])
             * Matrix_Scale(0.002f,0.002f,0.002f)
-            * Matrix_Rotate_X(reload_move*2)
+            * Matrix_Rotate_X(reload_move*2+recoil*2)
             * Matrix_Rotate_Y(-3.14/2);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, REVOLVER);
@@ -792,7 +881,7 @@ int main(int argc, char* argv[])
             * Matrix_Rotate_X(3.14/2);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, SCREEN);
-        DrawVirtualObject("the_aim");
+        DrawVirtualObject("the_screen");
         glEnable(GL_DEPTH_TEST);
 
         // Imprimimos a quantidade de munição que o jogador possui
@@ -958,6 +1047,7 @@ void LoadShadersFromFiles()
     g_bbox_min_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_min");
     g_bbox_max_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_max");
     lanterna_ligada_uniform = glGetUniformLocation(g_GpuProgramID, "lanterna_ligada"); // Variável usada para ligar ou desligar a lanterna
+    smoke_life_uniform = glGetUniformLocation(g_GpuProgramID, "smoke_life"); // Variável usada para definir a textura das partículas de fumaça
 
     // Variáveis em "shader_fragment.glsl" para acesso das imagens de textura
     glUseProgram(g_GpuProgramID);
@@ -968,6 +1058,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "chao_normal"), 4);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "skull_diff"), 5);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "skull_nm"), 6);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "smoke"), 7);
 
     glUseProgram(0);
 }

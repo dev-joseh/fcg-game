@@ -27,6 +27,7 @@ uniform mat4 projection;
 #define SCREEN  5
 #define SKULL  6
 #define EYE 7
+#define SMOKE 8
 
 
 uniform int object_id;
@@ -41,6 +42,7 @@ uniform sampler2D ceu;
 uniform sampler2D lanterna;
 uniform sampler2D crosshair;
 uniform sampler2D skull_diff;
+uniform sampler2D smoke;
 
 // Mapa de normais
 uniform sampler2D chao_normal;
@@ -56,6 +58,7 @@ float luz_lanterna(vec4 l, vec4 sv, float potencia);
 
 // Parâmetros criados:
 uniform int lanterna_ligada;
+uniform int smoke_life;
 int potencia_lanterna;
 
 // Constantes
@@ -148,13 +151,42 @@ void main()
     }
     else if ( object_id == BULLET )
     {
-        U = texcoords.x;
-        V = texcoords.y;
         // Propriedades espectrais da bala
         Kd = vec3(0.6,0.3,0.3);
         Ks = vec3(0.9,0.5,0.5);
         Ka = vec3(0.3,0.1,0.1);
         q = 10.0;
+    }
+    else if ( object_id == SMOKE )
+    {
+        // Seleciona qual textura da partícula de fumaça usar
+        if(smoke_life <= 8)
+        {
+            U = (texcoords.x/8)+smoke_life*0.125;
+            V = (texcoords.y/8)+0.875f;
+        }
+        else if(smoke_life <= 16&&smoke_life > 8)
+        {
+            U = (texcoords.x/8)+(smoke_life-8)*0.125;
+            V = (texcoords.y/8)+0.75f;
+        }
+        else if(smoke_life <= 32&&smoke_life > 16)
+        {
+            U = (texcoords.x/8)+(smoke_life-16)*0.125;
+            V = (texcoords.y/8)+0.625f;
+        }
+        else if(smoke_life <= 40&&smoke_life > 32)
+        {
+            U = (texcoords.x/8)+(smoke_life-32)*0.125;
+            V = (texcoords.y/8)+0.5f;
+        }
+        else if(smoke_life > 40)
+        {
+            U = (texcoords.x/8)+(smoke_life-40)*0.125;
+            V = (texcoords.y/8)+0.375f;
+        }
+
+
     }
     else if ( object_id == SKULL )
     {
@@ -168,8 +200,6 @@ void main()
     }
         else if ( object_id == EYE )
     {
-        U = texcoords.x;
-        V = texcoords.y;
         // Propriedades espectrais dos olhos
         Kd = vec3(0.3,0.3,0.3);
         Ks = vec3(0.3,0.3,0.3);
@@ -195,8 +225,8 @@ void main()
     else if ( object_id == SCREEN )
     {
         // Coordenadas de textura da tela, obtidas do arquivo OBJ.
-        U = texcoords[0];
-        V = texcoords[1];
+        U = texcoords.x;
+        V = texcoords.y;
     }
 
     // Espectro da fonte de iluminação
@@ -248,6 +278,14 @@ void main()
         color.rgb = texture(lanterna, vec2(U,V)).rgb*(A+D+S);
     else if( object_id == BULLET )
         color.rgb = vec3(1.0f,1.0f,0.0f)*(A+D+S);
+    else if( object_id == SMOKE )
+    {
+        color.rgb = texture(smoke, vec2(U,V)).rgb;
+        color.a = 0.2;
+        if(color.r > 0.2&&color.b < 0.1)
+            discard;
+    }
+
     else if( object_id == SCREEN ){
         color.rgb = texture(crosshair, vec2(U,V)).rgb;
         if (color.r < 0.1f)
