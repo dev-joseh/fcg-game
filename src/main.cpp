@@ -131,6 +131,13 @@ typedef struct monstro
     int vidas;
 } MONSTRO;
 
+typedef struct arvore
+{
+    // Variáveis que definem a posição das arvores
+    glm::vec4 pos;
+    float rotacao;
+} ARVORE;
+
 typedef struct Particle {
     glm::vec2 pos, vel;
     glm::vec4 color;
@@ -163,7 +170,6 @@ void PrintObjModelInfo(ObjModel*); // Função para debugging
 void TextRendering_Init();
 float TextRendering_LineHeight(GLFWwindow* window);
 float TextRendering_CharWidth(GLFWwindow* window);
-void TextRendering_ShowAMMO(GLFWwindow* window, int ammo);
 void TextRendering_PrintString(GLFWwindow* window, const std::string &str, float x, float y, float scale = 1.0f);
 void TextRendering_PrintMatrix(GLFWwindow* window, glm::mat4 M, float x, float y, float scale = 1.0f);
 void TextRendering_PrintVector(GLFWwindow* window, glm::vec4 v, float x, float y, float scale = 1.0f);
@@ -190,6 +196,7 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 // FUNÇÕES CRIADAS:
 void centerMouse(GLFWwindow* window, int screenWidth, int screenHeight); // Centraliza o mouse na tela
 void TextRendering_ShowSecondsEllapsed(GLFWwindow* window); // Mostra quandos segundos se passaram
+void TextRendering_ShowAMMO(GLFWwindow* window, int ammo);  // Mostra a munição do jogador
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
@@ -289,6 +296,7 @@ GLint g_bbox_max_uniform;
 GLint lanterna_ligada_uniform;
 GLint smoke_life_uniform;
 GLint nozzle_flash_uniform;
+GLint tronco_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
@@ -377,7 +385,8 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/Textures/skull_diff.png");                   // skull_diff
     LoadTextureImage("../../data/Textures/skull_nm.png");                     // skull_nm
     LoadTextureImage("../../data/Textures/smoke.png");                        // smoke
-
+    LoadTextureImage("../../data/Textures/bark1.jpg");                         // bark
+    LoadTextureImage("../../data/Textures/leaf.png");                         // folhas
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/Objects/sphere.obj");
@@ -412,6 +421,10 @@ int main(int argc, char* argv[])
     ComputeNormals(&bulletmodel);
     BuildTrianglesAndAddToVirtualScene(&bulletmodel);
 
+    ObjModel treesmodel("../../data/Objects/trees.obj");
+    ComputeNormals(&treesmodel);
+    BuildTrianglesAndAddToVirtualScene(&treesmodel);
+
     if ( argc > 1 )
     {
         ObjModel model(argv[1]);
@@ -431,8 +444,9 @@ int main(int argc, char* argv[])
 
     srand(time(NULL));
 
-    # define N_MONSTROS 35
+    # define N_MONSTROS 15
     # define N_AMMO 6
+    # define NUM_ARVORES 15
 
     // Definimos a posição inicial do jogador, da câmera e a quantidade de vidas e munições
     JOGADOR jogador = {{0.0f, 2.0f, 0.0f, 1.0f},{0.0f, 2.0f, 0.0f, 1.0f}, 3, 6};
@@ -454,6 +468,14 @@ int main(int argc, char* argv[])
     float reload_move = 0.0f;   // Movimento do revolver durante o recarregamento
     float recoil = 0.0f;        // Movimento do revolver durante o recuo do tiro
     bool recoil_active = false;
+
+    // Arvores
+    ARVORE arvores[NUM_ARVORES];
+    for(int i=0; i<NUM_ARVORES; i++)
+    {
+        arvores[i].pos = {rand()%40, 0.0f, rand()%40,1.0f};
+        arvores[i].rotacao = rand()%6*(2*3.14/6);
+    }
 
     // Definimos variáveis de partícula
     #define SMOKE_P_COUNT 6
@@ -608,7 +630,7 @@ int main(int argc, char* argv[])
         if(reload_active&&jogador.ammo<6)
         {
             // Animação de reload
-            if((reload_move >= -RELOAD_ANIMATION&&jogador.ammo<5))
+            if((reload_move >= -RELOAD_ANIMATION&&jogador.ammo<6))
                 reload_move -= RELOAD_ANIMATION * 3 * delta_t;
 
             // Atraso de reload para cada bala
@@ -627,7 +649,6 @@ int main(int argc, char* argv[])
             if(tecla_R_pressionada)
                 reload_active = true;
         }
-
 
         // Atirar ativa a bala atual, zerando seu timer de atividade e avançando para a próxima bala
         cooldown_tiro += delta_t;
@@ -671,8 +692,8 @@ int main(int argc, char* argv[])
             }
         }
 
+        // ========= RECOIL ANIMATION =========
         #define RECOIL_ANIMATION 0.6f
-        // Animação de recuo da arma
         if(recoil_active)
         {
             if(cooldown_tiro < 0.2f)
@@ -721,7 +742,6 @@ int main(int argc, char* argv[])
             }
         }
 
-
         // --------------------------------------------------------  MONSTRO  -----------------------------------------------------------
 
         for(int i=0; i<N_MONSTROS; i++)
@@ -746,26 +766,23 @@ int main(int argc, char* argv[])
         float nearplane = -0.1f;  // Posição do "near plane"
         float farplane  = -45.0f; // Posição do "far plane"
 
-        if (g_UsePerspectiveProjection)
-        {
-            // Projeção Perspectiva.
-            // Para definição do field of view (FOV), veja slides 205-215 do documento Aula_09_Projecoes.pdf.
-            float field_of_view = 3.141592 / 3.0f;
-            projection = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
-        }
-        else
-        {
-            // Projeção Ortográfica.
-            // Para definição dos valores l, r, b, t ("left", "right", "bottom", "top"),
-            // PARA PROJEÇÃO ORTOGRÁFICA veja slides 219-224 do documento Aula_09_Projecoes.pdf.
-            // Para simular um "zoom" ortográfico, computamos o valor de "t"
-            // utilizando a variável g_CameraDistance.
-            float t = 1.5f*g_CameraDistance/2.5f;
-            float b = -t;
-            float r = t*g_ScreenRatio;
-            float l = -r;
-            projection = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
-        }
+
+        // Projeção Perspectiva.
+        // Para definição do field of view (FOV), veja slides 205-215 do documento Aula_09_Projecoes.pdf.
+        float field_of_view = 3.141592 / 3.0f;
+        glm::mat4 perspective = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
+
+        // Projeção Ortográfica.
+        // Para definição dos valores l, r, b, t ("left", "right", "bottom", "top"),
+        // PARA PROJEÇÃO ORTOGRÁFICA veja slides 219-224 do documento Aula_09_Projecoes.pdf.
+        // Para simular um "zoom" ortográfico, computamos o valor de "t"
+        // utilizando a variável g_CameraDistance.
+        float t = 1.5f*g_CameraDistance/2.5f;
+        float b = -t;
+        float r = t*g_ScreenRatio;
+        float l = -r;
+        glm::mat4 orthographic = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
+
 
         glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
 
@@ -773,7 +790,7 @@ int main(int argc, char* argv[])
         // (GPU). Veja o arquivo "shader_vertex.glsl", onde estas são
         // efetivamente aplicadas em todos os pontos.
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
-        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
+        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(perspective));
 
         #define SPHERE 0
         #define BULLET 1
@@ -784,6 +801,7 @@ int main(int argc, char* argv[])
         #define SKULL  6
         #define EYE  7
         #define SMOKE  8
+        #define ARVORE  9
 
         // SPHERE
         glDisable(GL_DEPTH_TEST);
@@ -818,6 +836,7 @@ int main(int argc, char* argv[])
         // SKULL & EYE
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_DEPTH_TEST);
         for(int i=0; i<N_MONSTROS; i++)
         {
             model = Matrix_Translate(monstro[i].pos[0], monstro[i].pos[1], monstro[i].pos[2])
@@ -837,6 +856,26 @@ int main(int argc, char* argv[])
                 glUniform1i(g_object_id_uniform, EYE);
                 DrawVirtualObject("eye");
             PopMatrix(model);
+        }
+        glEnable(GL_DEPTH_TEST);
+
+        // ARVORES
+
+        for(int i=0; i<NUM_ARVORES; i++)
+        {
+            // TRONCO
+            model = Matrix_Translate(arvores[i].pos.x,0.0f,arvores[i].pos.z)
+                  * Matrix_Scale(1.0f,1.0f,1.0f)
+                  * Matrix_Rotate_Y(arvores[i].rotacao);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, ARVORE);
+            glUniform1i(tronco_uniform, true);
+            DrawVirtualObject("bark1");
+            // FOLHAS
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, ARVORE);
+            glUniform1i(tronco_uniform, false);
+            DrawVirtualObject("leaves1");
         }
 
         // Resetamos a matriz View para que os objetos carregados a partir daqui não se movimentem na tela.
@@ -881,6 +920,7 @@ int main(int argc, char* argv[])
         DrawVirtualObject("Barrel");
 
         // SCREEN
+        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(orthographic));
         glDisable(GL_DEPTH_TEST);
         model = Matrix_Translate(0.0f,0.0f,-2.0f)
             * Matrix_Scale(0.1f,0.1f,1.0f)
@@ -1054,7 +1094,8 @@ void LoadShadersFromFiles()
     g_bbox_max_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_max");
     lanterna_ligada_uniform = glGetUniformLocation(g_GpuProgramID, "lanterna_ligada"); // Variável usada para ligar ou desligar a lanterna
     smoke_life_uniform = glGetUniformLocation(g_GpuProgramID, "smoke_life"); // Variável usada para definir a textura das partículas de fumaça
-    nozzle_flash_uniform = glGetUniformLocation(g_GpuProgramID, "nozzle_flash");
+    nozzle_flash_uniform = glGetUniformLocation(g_GpuProgramID, "nozzle_flash"); // Variável usada para dizer se é para desenhar o flash do tiro da arma
+    tronco_uniform = glGetUniformLocation(g_GpuProgramID, "tronco"); // Variável usada para dizer se é para desenhar o tronco ou as folhas da árvore
 
     // Variáveis em "shader_fragment.glsl" para acesso das imagens de textura
     glUseProgram(g_GpuProgramID);
@@ -1066,6 +1107,8 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "skull_diff"), 5);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "skull_nm"), 6);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "smoke"), 7);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "bark"), 8);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "folhas"), 9);
 
     glUseProgram(0);
 }
@@ -1775,14 +1818,14 @@ void TextRendering_ShowAMMO(GLFWwindow* window, int ammo)
 
     static int   numchars = 7;
 
-    char buffer[20] = "AMMO: ?";
+    char buffer[20] = "AMMO: ?/6";
 
-    numchars = snprintf(buffer, 20, "AMMO: %d", ammo);
+    numchars = snprintf(buffer, 20, "AMMO: %d/6", ammo);
 
     float lineheight = TextRendering_LineHeight(window);
     float charwidth = TextRendering_CharWidth(window);
 
-    TextRendering_PrintString(window, buffer, -0.85f-(numchars + 1)*charwidth, -1.0f+lineheight, 1.0f);
+    TextRendering_PrintString(window, buffer, -0.85f-(numchars + 1)*charwidth, -0.95f+lineheight, 5.0f);
 }
 
 // Função para debugging: imprime no terminal todas informações de um modelo

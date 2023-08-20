@@ -28,7 +28,7 @@ uniform mat4 projection;
 #define SKULL  6
 #define EYE 7
 #define SMOKE 8
-
+#define ARVORE 9
 
 uniform int object_id;
 
@@ -43,6 +43,8 @@ uniform sampler2D lanterna;
 uniform sampler2D crosshair;
 uniform sampler2D skull_diff;
 uniform sampler2D smoke;
+uniform sampler2D bark;
+uniform sampler2D folhas;
 
 // Mapa de normais
 uniform sampler2D chao_normal;
@@ -61,6 +63,8 @@ uniform int lanterna_ligada;
 uniform int smoke_life;
 int potencia_lanterna;
 uniform int nozzle_flash;
+bool opaco=false;
+uniform bool tronco;
 
 // Constantes
 #define M_PI   3.14159265358979323846
@@ -113,6 +117,7 @@ void main()
 
     if ( object_id == SPHERE )
     {
+        opaco = true;
         vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
 
         vec4 r = position_model - bbox_center;
@@ -129,9 +134,32 @@ void main()
         Ka = vec3(0.2,0.02,0.02);
         q = 1.0;
     }
+    else if ( object_id == ARVORE )
+    {
+        // Propriedades espectrais da lanterna
+        Kd = vec3(0.1,0.1,0.1);
+        Ks = vec3(0.5,0.5,0.5);
+        Ka = vec3(0.09,0.01,0.01);
+        q = 30.0;
+        U = texcoords.x;
+        V = texcoords.y;
 
+        if(tronco)
+        {
+            vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
+
+            vec4 r = position_model - bbox_center;
+
+            theta = atan(position_model.x,position_model.z);
+            phi   = asin(position_model.y/length(r));
+
+            U = (theta+M_PI)/(2*M_PI);
+            V = (phi+M_PI_2)/M_PI;
+        }
+    }
     else if ( object_id == FLASHLIGHT )
     {
+        opaco = true;
         // Propriedades espectrais da lanterna
         Kd = vec3(0.0,0.0,0.0);
         Ks = vec3(0.0,0.0,0.0);
@@ -142,6 +170,7 @@ void main()
     }
     else if ( object_id == REVOLVER )
     {
+        opaco = true;
         // Propriedades espectrais do revolver
         Kd = vec3(0.0,0.0,0.0);
         Ks = vec3(0.0,0.0,0.0);
@@ -152,6 +181,7 @@ void main()
     }
     else if ( object_id == BULLET )
     {
+        opaco = true;
         // Propriedades espectrais da bala
         Kd = vec3(0.6,0.3,0.3);
         Ks = vec3(0.9,0.5,0.5);
@@ -209,6 +239,7 @@ void main()
     }
     else if ( object_id == PLANE )
     {
+        opaco = true;
         vec2 texcoordsRepetidas = fract(texcoords*250); // Coordenadas repetidas do plano de chao
 
         // Coordenadas de textura do plano, obtidas do arquivo OBJ.
@@ -247,7 +278,7 @@ void main()
 
     // Define se a lanterna está ligada.
     if (lanterna_ligada==1)
-        potencia_lanterna = 40;
+        potencia_lanterna = 18;
     else
         potencia_lanterna = 0;
 
@@ -257,29 +288,40 @@ void main()
     vec3 S = (lambert_diffuse_term * 0.5 + phong_specular_term) * luz_lanterna(l, sv, potencia_lanterna);
     vec3 NF = ambient_term*nozzle_flash*5;
 
-    // Define a textura de cada objeto
-    color.a = 1;
+    // Define a textura dos objetos opacos
+    if(opaco)
+        color.a = 1;
 
     if( object_id == SPHERE )
         color.rgb = texture(ceu, vec2(U,V)).rgb*(2*A);
-    else if( object_id == SKULL )
-    {
-        color.rgb = texture(skull_diff, vec2(U,V)).rgb*NF;
-        color.a = nozzle_flash+0.2*luz_lanterna(l, sv, potencia_lanterna);
-    }
-    else if( object_id == EYE )
-    {
-        color.rgb = vec3(0.1f,0.1f,0.9f)*(0.1-S-D);
-        color.a = 1-nozzle_flash;
-    }
     else if( object_id == PLANE )
         color.rgb = texture(chao, vec2(U,V)).rgb*(A+D+NF);
     else if( object_id == FLASHLIGHT )
         color.rgb = texture(lanterna, vec2(U,V)).rgb*(3*A+NF);
     else if( object_id == REVOLVER )
-        color.rgb = texture(lanterna, vec2(U,V)).rgb*(A+D+S+NF);
+        color.rgb = texture(lanterna, vec2(U,V)).rgb*(3*A+NF);
     else if( object_id == BULLET )
         color.rgb = vec3(1.0f,1.0f,0.0f)*(A+D+S);
+    else if( object_id == ARVORE && tronco )
+        color.rgb = texture(bark, vec2(U,V)).rgb*(A+D+NF);
+
+    // Define a textura dos objetos com transparência
+    else if( object_id == ARVORE && tronco == false )
+        {
+            color.rgb = texture(folhas, vec2(U,V)).rgb*(A+D+NF);
+            if(texture(folhas, vec2(U,V)).r > 0.3)
+                discard;
+        }
+    else if( object_id == SKULL )
+    {
+        color.rgb = texture(skull_diff, vec2(U,V)).rgb*S*D;
+        color.a = nozzle_flash+0.2*luz_lanterna(l, sv, potencia_lanterna);
+    }
+    else if( object_id == EYE )
+    {
+        color.rgb = vec3(0.1f,0.1f,0.9f)*(0.1-S-D);
+        color.a -= nozzle_flash;
+    }
     else if( object_id == SMOKE )
     {
         color.rgb = texture(smoke, vec2(U,V)).rgb;
@@ -287,12 +329,12 @@ void main()
         if(color.r > 0.2&&color.b < 0.1)
             discard;
     }
-
     else if( object_id == SCREEN ){
         color.rgb = texture(crosshair, vec2(U,V)).rgb;
         if (color.r < 0.1f)
             discard;
     }
+
     // Cor final com correção gamma, considerando monitor sRGB.
     // Veja https://en.wikipedia.org/w/index.php?title=Gamma_correction&oldid=751281772#Windows.2C_Mac.2C_sRGB_and_TV.2Fvideo_standard_gammas
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);
@@ -303,7 +345,7 @@ float luz_lanterna(vec4 l, vec4 sv, float potencia)
 {
     float resultado;
     // A potencia dita a força da luz e seu raio
-    float minimo = cos(potencia/2 * 3.1415926535/180.0);
+    float minimo = cos(potencia * 3.1415926535/180.0);
     float valor = dot(l, sv);
 
     if(valor > minimo)
