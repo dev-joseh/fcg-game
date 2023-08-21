@@ -390,6 +390,9 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/Textures/WoodCabin.jpg");                    // cabin_diff
     LoadTextureImage("../../data/Textures/WoodCabinNM.jpg");                  // cabin_normal
     LoadTextureImage("../../data/Textures/WoodCabinSM.jpg");                  // cabin_spec
+    LoadTextureImage("../../data/Textures/car_BP.png");                       // carro_BP_diff
+    LoadTextureImage("../../data/Textures/car_BP.png");                       // carro_SP_diff
+    LoadTextureImage("../../data/Textures/car_BP.png");                       // carro_W_diff
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/Objects/sphere.obj");
@@ -432,6 +435,14 @@ int main(int argc, char* argv[])
     ComputeNormals(&cabinmodel);
     BuildTrianglesAndAddToVirtualScene(&cabinmodel);
 
+    ObjModel carmodel("../../data/Objects/Vazz.obj");
+    ComputeNormals(&carmodel);
+    BuildTrianglesAndAddToVirtualScene(&carmodel);
+
+    ObjModel carglassmodel("../../data/Objects/carglass.obj");
+    ComputeNormals(&carglassmodel);
+    BuildTrianglesAndAddToVirtualScene(&carglassmodel);
+
     if ( argc > 1 )
     {
         ObjModel model(argv[1]);
@@ -451,9 +462,11 @@ int main(int argc, char* argv[])
 
     srand(time(NULL));
 
-    # define N_MONSTROS 10
-    # define N_AMMO 6
-    # define NUM_ARVORES 10
+    # define N_MONSTROS     5        // Monstros teste no mapa
+    # define N_AMMO         6        // Munição máxima do revolver
+    # define NUM_ARVORES   30        // Quantidade de árvores no mapa
+    # define ARVORES_DIST  15.0f     // Distância das árvores da cabine
+    # define SPEED_BASE     3.0f     // Velocidade base para algumas variáveis
 
     // Definimos a posição inicial do jogador, da câmera e a quantidade de vidas e munições
     JOGADOR jogador = {{0.0f, 2.0f, 0.0f, 1.0f},{0.0f, 2.0f, 0.0f, 1.0f}, 3, 6};
@@ -476,11 +489,13 @@ int main(int argc, char* argv[])
     float recoil = 0.0f;        // Movimento do revolver durante o recuo do tiro
     bool recoil_active = false;
 
-    // Arvores
+    // Árvores
+    // Desenhamos as árvores em um círculo com raio = ARVORES_DIST ao redor da cabine e do carro
     ARVORE arvores[NUM_ARVORES];
     for(int i=0; i<NUM_ARVORES; i++)
     {
-        arvores[i].pos = {rand()%40, 0.0f, rand()%40,1.0f};
+        float angulo=i*(2*3.14/NUM_ARVORES);
+        arvores[i].pos = glm::vec4(cos(angulo)*ARVORES_DIST, 0.0f, sin(angulo)*ARVORES_DIST, 1.0f);
         arvores[i].rotacao = rand()%6*(2*3.14/6);
     }
 
@@ -495,8 +510,8 @@ int main(int argc, char* argv[])
     bool _fullscreen=false;
 
     // Definir velocidade e tempo para câmera livre
-    float speed, speed_base = 3.0f; // Velocidade da câmera
-    float Yspeed, gravity = 3.0f; // Aceleração da queda
+    float speed, speed_base = SPEED_BASE;  // Velocidade base para os monstros, jogador e para algumas variáveis do revolver
+    float Yspeed, gravity = 3.0f;         // Aceleração da queda
     float prev_time = (float)glfwGetTime();
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
@@ -566,6 +581,13 @@ int main(int argc, char* argv[])
         if (tecla_A_pressionada)
             jogador.pos += -vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
 
+        // Prende o jogador em um 'loop' dentro da área de jogo, caso ele se afaste demais da cabine
+        if ( sqrt(pow(jogador.pos[0],2)+pow(jogador.pos[2],2)) >= ARVORES_DIST + 27.0f)
+        {
+            jogador.pos[0] = -jogador.pos[0];
+            jogador.pos[2] = -jogador.pos[2];
+        }
+
         // "Balanço" enquanto o jogador anda no chão.
         if((tecla_A_pressionada||tecla_D_pressionada||tecla_S_pressionada||tecla_W_pressionada) && jogador.pos[1] <= 0.0f)
             jogador_andando = true;
@@ -623,7 +645,6 @@ int main(int argc, char* argv[])
         // O eixo z da câmera sempre é igual ao eixo da posição do jogador
         jogador.camera[0] = jogador.pos[0];
         jogador.camera[2] = jogador.pos[2];
-
 
         // A posição dos objetos irá se mover conforme o jogador caminha ou recarrega a arma
         glm::vec3 lanterna_pos = glm::vec3(0.0f,(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f,-0.6f);
@@ -771,7 +792,7 @@ int main(int argc, char* argv[])
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -30.0f; // Posição do "far plane"
+        float farplane  = -25.0f; // Posição do "far plane"
 
 
         // Projeção Perspectiva.
@@ -810,6 +831,8 @@ int main(int argc, char* argv[])
         #define SMOKE  8
         #define ARVORE  9
         #define CABINE  10
+        #define CARRO  11
+        #define C_VIDROS  12
 
         // SPHERE
         glDisable(GL_DEPTH_TEST);
@@ -835,6 +858,48 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, CABINE);
         DrawVirtualObject("WoodCabin");
         DrawVirtualObject("Roof");
+
+        // CARRO & VIDROS
+        model = Matrix_Translate(6.0f, 0.0f, 0.0f)
+              * Matrix_Scale(0.03f,0.03f,0.03f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, CARRO);
+        DrawVirtualObject("Front_logo");
+        DrawVirtualObject("Back_light");
+        DrawVirtualObject("Exhaust");
+        DrawVirtualObject("Front_down_light");
+        DrawVirtualObject("Front_middle_black");
+        DrawVirtualObject("Side_light");
+        DrawVirtualObject("Front_fender");
+        DrawVirtualObject("front_light_left");
+        DrawVirtualObject("Back_edge");
+        DrawVirtualObject("Car_body");
+        DrawVirtualObject("Back_fender");
+        DrawVirtualObject("Wheel_RF");
+        DrawVirtualObject("Wheel_RB");
+        DrawVirtualObject("Front_up_light_lamp");
+        DrawVirtualObject("Wheel_LF");
+        DrawVirtualObject("Wheel_LB");
+        DrawVirtualObject("Dvornik_left");
+        DrawVirtualObject("Dvornik_right");
+        DrawVirtualObject("Mirrors");
+        DrawVirtualObject("front_light_right");
+        DrawVirtualObject("Back_license_plate2");
+        DrawVirtualObject("Door_LB");
+        DrawVirtualObject("Door_RB");
+        DrawVirtualObject("Door_RF");
+        DrawVirtualObject("Door_LF");
+        DrawVirtualObject("Back_door");
+        DrawVirtualObject("Bagajnik");
+
+        // C_VIDROS
+        model = Matrix_Translate(6.0f, 0.0f, 0.0f)
+              * Matrix_Scale(0.03f,0.03f,0.03f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, C_VIDROS);
+        DrawVirtualObject("Front_glass");
+        DrawVirtualObject("Back_glass");
+        DrawVirtualObject("Sideglass");
 
         // BULLET
         for(int i=0; i<N_AMMO; i++)
@@ -1127,6 +1192,9 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "cabine_diff"), 10);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "cabine_normal"), 11);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "cabine_spec"), 12);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "carro_BP_diff"), 13);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "carro_SP_diff"), 14);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "carro_W_diff"), 15);
 
     glUseProgram(0);
 }

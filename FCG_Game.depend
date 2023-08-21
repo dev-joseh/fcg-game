@@ -2837,7 +2837,7 @@
 1691616187 source:c:\users\55519\downloads\laboratorio_5_codigo_fonte\src\tiny_obj_loader.cpp
 	"tiny_obj_loader.h"
 
-1692642076 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\glad.c
+1692642873 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\glad.c
 	<stdio.h>
 	<stdlib.h>
 	<string.h>
@@ -2862,7 +2862,7 @@
 	<inttypes.h>
 	<stdint.h>
 
-1692642076 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\stb_image.cpp
+1692642873 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\stb_image.cpp
 	"stb_image.h"
 
 1692642057 c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\include\stb_image.h
@@ -2881,7 +2881,7 @@
 	<intrin.h>
 	<arm_neon.h>
 
-1692642076 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\textrendering.cpp
+1692642873 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\textrendering.cpp
 	<string>
 	<glad/glad.h>
 	<GLFW/glfw3.h>
@@ -3473,7 +3473,7 @@
 	<stddef.h>
 	<stdint.h>
 
-1692642076 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\tiny_obj_loader.cpp
+1692642873 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\tiny_obj_loader.cpp
 	"tiny_obj_loader.h"
 
 1692642057 c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\include\tiny_obj_loader.h
@@ -3494,7 +3494,7 @@
 	<array>
 	"mapbox/earcut.hpp"
 
-1692642399 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\main.cpp
+1692658994 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\main.cpp
 	<cmath>
 	<cstdio>
 	<cstdlib>

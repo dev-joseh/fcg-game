@@ -30,6 +30,8 @@ uniform mat4 projection;
 #define SMOKE 8
 #define ARVORE 9
 #define CABINE 10
+#define CARRO 11
+#define C_VIDROS 12
 
 uniform int object_id;
 
@@ -47,6 +49,9 @@ uniform sampler2D smoke;
 uniform sampler2D bark;
 uniform sampler2D folhas;
 uniform sampler2D cabine_diff;
+uniform sampler2D carro_BP_diff;
+uniform sampler2D carro_SP_diff;
+uniform sampler2D carro_W_diff;
 
 // Mapa de normais
 uniform sampler2D chao_normal;
@@ -192,6 +197,29 @@ void main()
         U = texcoords.x;
         V = texcoords.y;
     }
+    else if ( object_id == CARRO )
+    {
+        opaco = true;
+        // Propriedades espectrais do chão
+        Kd = vec3(0.1,0.1,0.1);
+        Ks = vec3(0.9,0.5,0.5);
+        Ka = vec3(0.09,0.01,0.01);
+        q = 30.0;
+
+        U = texcoords.x;
+        V = texcoords.y;
+    }
+    else if ( object_id == CARRO )
+    {
+        // Propriedades espectrais do chão
+        Kd = vec3(0.1,0.1,0.1);
+        Ks = vec3(0.9,0.5,0.5);
+        Ka = vec3(0.09,0.01,0.01);
+        q = 30.0;
+
+        U = texcoords.x;
+        V = texcoords.y;
+    }
     // == JOGADOR ==
     else if ( object_id == FLASHLIGHT )
     {
@@ -317,6 +345,10 @@ void main()
         color.rgb = texture(chao, vec2(U,V)).rgb*(A+D+NF);
     else if( object_id == CABINE )
         color.rgb = texture(cabine_diff, vec2(U,V)).rgb*(A+D+S+NF);
+    else if( object_id == CARRO )
+        color.rgb = texture(carro_BP_diff, vec2(U,V)).rgb*(A+D+S+NF);
+    else if( object_id == C_VIDROS )
+        color.rgb = vec3(0.0f,0.0f,0.0f)+D+S+NF;
     else if( object_id == ARVORE && tronco )
         color.rgb = texture(bark, vec2(U,V)).rgb*(A+D+NF);
     else if( object_id == ARVORE && tronco == false )
@@ -354,8 +386,8 @@ void main()
     }
     else if( object_id == EYE )
     {
-        color.rgb = vec3(0.1f,0.1f,0.9f)*(0.1-S-D);
-        color.a = 1-luz_lanterna(l, sv, potencia_lanterna);
+        color.rgb = vec3(0.9f,0.9f,0.0f)*(0.1-S-D);
+        color.a = 0.2+luz_lanterna(l, sv, potencia_lanterna);
     }
 
     // Cor final com correção gamma, considerando monitor sRGB.
