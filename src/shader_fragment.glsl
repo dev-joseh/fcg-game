@@ -29,6 +29,7 @@ uniform mat4 projection;
 #define EYE 7
 #define SMOKE 8
 #define ARVORE 9
+#define CABINE 10
 
 uniform int object_id;
 
@@ -45,12 +46,15 @@ uniform sampler2D skull_diff;
 uniform sampler2D smoke;
 uniform sampler2D bark;
 uniform sampler2D folhas;
+uniform sampler2D cabine_diff;
 
 // Mapa de normais
 uniform sampler2D chao_normal;
 uniform sampler2D skull_normal;
+uniform sampler2D cabine_normal;
 
 // Mapa de especular
+uniform sampler2D cabine_spec;
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec4 color;
@@ -154,6 +158,7 @@ void main()
     }
     else if ( object_id == ARVORE )
     {
+        opaco = true;
         // Propriedades espectrais da lanterna
         Kd = vec3(0.1,0.1,0.1);
         Ks = vec3(0.5,0.5,0.5);
@@ -174,6 +179,18 @@ void main()
             U = (theta+M_PI)/(2*M_PI);
             V = (phi+M_PI_2)/M_PI;
         }
+    }
+    else if ( object_id == CABINE )
+    {
+        opaco = true;
+        // Propriedades espectrais do chão
+        Kd = vec3(0.1,0.1,0.1);
+        Ks = texture(cabine_spec, vec2(U,V)).rgb;
+        Ka = vec3(0.09,0.01,0.01);
+        q = 30.0;
+
+        U = texcoords.x;
+        V = texcoords.y;
     }
     // == JOGADOR ==
     else if ( object_id == FLASHLIGHT )
@@ -241,8 +258,6 @@ void main()
             U = (texcoords.x/8)+(smoke_life-40)*0.125;
             V = (texcoords.y/8)+0.375f;
         }
-
-
     }
     // == FANTASMAS ==
     else if ( object_id == SKULL )
@@ -276,12 +291,12 @@ void main()
     // Termo ambiente
     vec3 ambient_term = Ka * Ia; // Termo ambiente
 
-    // Termo especular utilizando o modelo de iluminação de Phong
+    // Termo especular utilizando o modelo de iluminação de Phong. Para Mapa especular = substituir 'Ks'
     vec3 phong_specular_term  = Ks * I * pow(max(0,dot(r,v)), q) * max(0, dot(n,l)); // Termo especular de Phong
 
     // Define se a lanterna está ligada.
     if (lanterna_ligada==1)
-        potencia_lanterna = 18;
+        potencia_lanterna = 25;
     else
         potencia_lanterna = 0;
 
@@ -300,14 +315,16 @@ void main()
         color.rgb = texture(ceu, vec2(U,V)).rgb*(2*A);
     else if( object_id == PLANE )
         color.rgb = texture(chao, vec2(U,V)).rgb*(A+D+NF);
+    else if( object_id == CABINE )
+        color.rgb = texture(cabine_diff, vec2(U,V)).rgb*(A+D+S+NF);
     else if( object_id == ARVORE && tronco )
         color.rgb = texture(bark, vec2(U,V)).rgb*(A+D+NF);
     else if( object_id == ARVORE && tronco == false )
-        {
+    {
             color.rgb = texture(folhas, vec2(U,V)).rgb*(A+D+NF);
             if(texture(folhas, vec2(U,V)).r > 0.3)
                 discard;
-        }
+    }
 
     // == JOGADOR ==
     else if( object_id == FLASHLIGHT )
@@ -332,13 +349,13 @@ void main()
     // == FANTASMAS ==
     else if( object_id == SKULL )
     {
-        color.rgb = texture(skull_diff, vec2(U,V)).rgb*S*D;
+        color.rgb = texture(skull_diff, vec2(U,V)).rgb*(S+D+NF);
         color.a = nozzle_flash+0.2*luz_lanterna(l, sv, potencia_lanterna);
     }
     else if( object_id == EYE )
     {
         color.rgb = vec3(0.1f,0.1f,0.9f)*(0.1-S-D);
-        color.a -= nozzle_flash;
+        color.a = 1-luz_lanterna(l, sv, potencia_lanterna);
     }
 
     // Cor final com correção gamma, considerando monitor sRGB.

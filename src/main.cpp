@@ -383,10 +383,13 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/Textures/CrossHair.png");                    // crosshair
     LoadTextureImage("../../data/Textures/chao_normal.jpg");                  // chao_normal
     LoadTextureImage("../../data/Textures/skull_diff.png");                   // skull_diff
-    LoadTextureImage("../../data/Textures/skull_nm.png");                     // skull_nm
+    LoadTextureImage("../../data/Textures/skull_nm.png");                     // skull_normal
     LoadTextureImage("../../data/Textures/smoke.png");                        // smoke
-    LoadTextureImage("../../data/Textures/bark1.jpg");                         // bark
+    LoadTextureImage("../../data/Textures/bark1.jpg");                        // bark
     LoadTextureImage("../../data/Textures/leaf.png");                         // folhas
+    LoadTextureImage("../../data/Textures/WoodCabin.jpg");                    // cabin_diff
+    LoadTextureImage("../../data/Textures/WoodCabinNM.jpg");                  // cabin_normal
+    LoadTextureImage("../../data/Textures/WoodCabinSM.jpg");                  // cabin_spec
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/Objects/sphere.obj");
@@ -425,6 +428,10 @@ int main(int argc, char* argv[])
     ComputeNormals(&treesmodel);
     BuildTrianglesAndAddToVirtualScene(&treesmodel);
 
+    ObjModel cabinmodel("../../data/Objects/cabin.obj");
+    ComputeNormals(&cabinmodel);
+    BuildTrianglesAndAddToVirtualScene(&cabinmodel);
+
     if ( argc > 1 )
     {
         ObjModel model(argv[1]);
@@ -444,9 +451,9 @@ int main(int argc, char* argv[])
 
     srand(time(NULL));
 
-    # define N_MONSTROS 15
+    # define N_MONSTROS 10
     # define N_AMMO 6
-    # define NUM_ARVORES 25
+    # define NUM_ARVORES 10
 
     // Definimos a posição inicial do jogador, da câmera e a quantidade de vidas e munições
     JOGADOR jogador = {{0.0f, 2.0f, 0.0f, 1.0f},{0.0f, 2.0f, 0.0f, 1.0f}, 3, 6};
@@ -802,6 +809,7 @@ int main(int argc, char* argv[])
         #define EYE  7
         #define SMOKE  8
         #define ARVORE  9
+        #define CABINE  10
 
         // SPHERE
         glDisable(GL_DEPTH_TEST);
@@ -819,6 +827,14 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
         DrawVirtualObject("the_plane");
+
+        // CABINE
+        model = Matrix_Translate(0.0f, 0.0f, 0.0f)
+              * Matrix_Scale(0.1f,0.1f,0.1f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, CABINE);
+        DrawVirtualObject("WoodCabin");
+        DrawVirtualObject("Roof");
 
         // BULLET
         for(int i=0; i<N_AMMO; i++)
@@ -860,7 +876,6 @@ int main(int argc, char* argv[])
         glEnable(GL_DEPTH_TEST);
 
         // ARVORES
-
         for(int i=0; i<NUM_ARVORES; i++)
         {
             // TRONCO
@@ -975,7 +990,7 @@ void LoadTextureImage(const char* filename)
     int width;
     int height;
     int channels;
-    unsigned char *data = stbi_load(filename, &width, &height, &channels, 3);
+    unsigned char *data = stbi_load(filename, &width, &height, &channels, 3); // 4 canais para transparencia
 
     if ( data == NULL )
     {
@@ -1008,7 +1023,7 @@ void LoadTextureImage(const char* filename)
     GLuint textureunit = g_NumLoadedTextures;
     glActiveTexture(GL_TEXTURE0 + textureunit);
     glBindTexture(GL_TEXTURE_2D, texture_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data); // Usar GL_RGBA para transparencia
     glGenerateMipmap(GL_TEXTURE_2D);
     glBindSampler(textureunit, sampler_id);
 
@@ -1105,10 +1120,13 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "crosshair"), 3);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "chao_normal"), 4);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "skull_diff"), 5);
-    glUniform1i(glGetUniformLocation(g_GpuProgramID, "skull_nm"), 6);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "skull_normal"), 6);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "smoke"), 7);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "bark"), 8);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "folhas"), 9);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "cabine_diff"), 10);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "cabine_normal"), 11);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "cabine_spec"), 12);
 
     glUseProgram(0);
 }
