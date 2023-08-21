@@ -115,6 +115,7 @@ void main()
     // Coordenadas de textura esféricas
     float theta, phi, px, py, pz;
 
+    // == CENÁRIO ==
     if ( object_id == SPHERE )
     {
         opaco = true;
@@ -133,6 +134,23 @@ void main()
         Ks = vec3(0.0,0.0,0.0);
         Ka = vec3(0.2,0.02,0.02);
         q = 1.0;
+    }
+    else if ( object_id == PLANE )
+    {
+        opaco = true;
+        vec2 texcoordsRepetidas = fract(texcoords*250); // Coordenadas repetidas do plano de chao
+
+        // Coordenadas de textura do plano, obtidas do arquivo OBJ.
+        U = texcoordsRepetidas[0];
+        V = texcoordsRepetidas[1];
+
+        // Propriedades espectrais do chão
+        Kd = vec3(0.1,0.1,0.1);
+        Ks = vec3(0.5,0.5,0.5);
+        Ka = vec3(0.09,0.01,0.01);
+        q = 80.0;
+
+        n = normalize(inverse(transpose(model)) * texture(chao_normal, vec2(U,V)));
     }
     else if ( object_id == ARVORE )
     {
@@ -157,6 +175,7 @@ void main()
             V = (phi+M_PI_2)/M_PI;
         }
     }
+    // == JOGADOR ==
     else if ( object_id == FLASHLIGHT )
     {
         opaco = true;
@@ -179,6 +198,12 @@ void main()
         U = texcoords.x;
         V = texcoords.y;
     }
+    else if ( object_id == SCREEN )
+    {
+        // Coordenadas de textura da tela, obtidas do arquivo OBJ.
+        U = texcoords.x;
+        V = texcoords.y;
+    }
     else if ( object_id == BULLET )
     {
         opaco = true;
@@ -190,7 +215,7 @@ void main()
     }
     else if ( object_id == SMOKE )
     {
-        // Seleciona qual textura da partícula de fumaça usar
+        // Seleciona qual textura da partícula de fumaça usar, baseado na sua vida
         if(smoke_life <= 8)
         {
             U = (texcoords.x/8)+smoke_life*0.125;
@@ -219,6 +244,7 @@ void main()
 
 
     }
+    // == FANTASMAS ==
     else if ( object_id == SKULL )
     {
         U = texcoords.x;
@@ -229,36 +255,13 @@ void main()
         Ka = vec3(1,1,1);
         q = 25.0;
     }
-        else if ( object_id == EYE )
+    else if ( object_id == EYE )
     {
         // Propriedades espectrais dos olhos
         Kd = vec3(0.3,0.3,0.3);
         Ks = vec3(0.3,0.3,0.3);
         Ka = vec3(0.01,0.01,0.01);
         q = 25.0;
-    }
-    else if ( object_id == PLANE )
-    {
-        opaco = true;
-        vec2 texcoordsRepetidas = fract(texcoords*250); // Coordenadas repetidas do plano de chao
-
-        // Coordenadas de textura do plano, obtidas do arquivo OBJ.
-        U = texcoordsRepetidas[0];
-        V = texcoordsRepetidas[1];
-
-        // Propriedades espectrais do chão
-        Kd = vec3(0.1,0.1,0.1);
-        Ks = vec3(0.5,0.5,0.5);
-        Ka = vec3(0.09,0.01,0.01);
-        q = 80.0;
-
-        n = normalize(inverse(transpose(model)) * texture(chao_normal, vec2(U,V)));
-    }
-    else if ( object_id == SCREEN )
-    {
-        // Coordenadas de textura da tela, obtidas do arquivo OBJ.
-        U = texcoords.x;
-        V = texcoords.y;
     }
 
     // Espectro da fonte de iluminação
@@ -292,36 +295,27 @@ void main()
     if(opaco)
         color.a = 1;
 
+    // == CENÁRIO ==
     if( object_id == SPHERE )
         color.rgb = texture(ceu, vec2(U,V)).rgb*(2*A);
     else if( object_id == PLANE )
         color.rgb = texture(chao, vec2(U,V)).rgb*(A+D+NF);
-    else if( object_id == FLASHLIGHT )
-        color.rgb = texture(lanterna, vec2(U,V)).rgb*(3*A+NF);
-    else if( object_id == REVOLVER )
-        color.rgb = texture(lanterna, vec2(U,V)).rgb*(3*A+NF);
-    else if( object_id == BULLET )
-        color.rgb = vec3(1.0f,1.0f,0.0f)*(A+D+S);
     else if( object_id == ARVORE && tronco )
         color.rgb = texture(bark, vec2(U,V)).rgb*(A+D+NF);
-
-    // Define a textura dos objetos com transparência
     else if( object_id == ARVORE && tronco == false )
         {
             color.rgb = texture(folhas, vec2(U,V)).rgb*(A+D+NF);
             if(texture(folhas, vec2(U,V)).r > 0.3)
                 discard;
         }
-    else if( object_id == SKULL )
-    {
-        color.rgb = texture(skull_diff, vec2(U,V)).rgb*S*D;
-        color.a = nozzle_flash+0.2*luz_lanterna(l, sv, potencia_lanterna);
-    }
-    else if( object_id == EYE )
-    {
-        color.rgb = vec3(0.1f,0.1f,0.9f)*(0.1-S-D);
-        color.a -= nozzle_flash;
-    }
+
+    // == JOGADOR ==
+    else if( object_id == FLASHLIGHT )
+        color.rgb = texture(lanterna, vec2(U,V)).rgb*(3*A+NF);
+    else if( object_id == REVOLVER )
+        color.rgb = texture(lanterna, vec2(U,V)).rgb*(3*A+NF);
+    else if( object_id == BULLET )
+        color.rgb = vec3(1.0f,1.0f,0.0f)*(A+D+S);
     else if( object_id == SMOKE )
     {
         color.rgb = texture(smoke, vec2(U,V)).rgb;
@@ -333,6 +327,18 @@ void main()
         color.rgb = texture(crosshair, vec2(U,V)).rgb;
         if (color.r < 0.1f)
             discard;
+    }
+
+    // == FANTASMAS ==
+    else if( object_id == SKULL )
+    {
+        color.rgb = texture(skull_diff, vec2(U,V)).rgb*S*D;
+        color.a = nozzle_flash+0.2*luz_lanterna(l, sv, potencia_lanterna);
+    }
+    else if( object_id == EYE )
+    {
+        color.rgb = vec3(0.1f,0.1f,0.9f)*(0.1-S-D);
+        color.a -= nozzle_flash;
     }
 
     // Cor final com correção gamma, considerando monitor sRGB.

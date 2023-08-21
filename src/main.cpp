@@ -446,7 +446,7 @@ int main(int argc, char* argv[])
 
     # define N_MONSTROS 15
     # define N_AMMO 6
-    # define NUM_ARVORES 15
+    # define NUM_ARVORES 25
 
     // Definimos a posição inicial do jogador, da câmera e a quantidade de vidas e munições
     JOGADOR jogador = {{0.0f, 2.0f, 0.0f, 1.0f},{0.0f, 2.0f, 0.0f, 1.0f}, 3, 6};
@@ -764,7 +764,7 @@ int main(int argc, char* argv[])
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -45.0f; // Posição do "far plane"
+        float farplane  = -30.0f; // Posição do "far plane"
 
 
         // Projeção Perspectiva.
