@@ -31,7 +31,6 @@ uniform mat4 projection;
 #define ARVORE 9
 #define CABINE 10
 #define CARRO 11
-#define C_VIDROS 12
 
 uniform int object_id;
 
@@ -49,9 +48,14 @@ uniform sampler2D smoke;
 uniform sampler2D bark;
 uniform sampler2D folhas;
 uniform sampler2D cabine_diff;
-uniform sampler2D carro_BP_diff;
-uniform sampler2D carro_SP_diff;
-uniform sampler2D carro_W_diff;
+uniform sampler2D car_BL1;
+uniform sampler2D car_BL2;
+uniform sampler2D car_GL;
+uniform sampler2D car_HL;
+uniform sampler2D car_BL;
+uniform sampler2D car_Plaque;
+uniform sampler2D car_Logo;
+uniform sampler2D car_Tire;
 
 // Mapa de normais
 uniform sampler2D chao_normal;
@@ -74,6 +78,7 @@ int potencia_lanterna;
 uniform int nozzle_flash;
 bool opaco=false;
 uniform bool tronco;
+uniform int parte_carro;
 
 // Constantes
 #define M_PI   3.14159265358979323846
@@ -211,6 +216,7 @@ void main()
     }
     else if ( object_id == CARRO )
     {
+        opaco = true;
         // Propriedades espectrais do chão
         Kd = vec3(0.1,0.1,0.1);
         Ks = vec3(0.9,0.5,0.5);
@@ -346,9 +352,26 @@ void main()
     else if( object_id == CABINE )
         color.rgb = texture(cabine_diff, vec2(U,V)).rgb*(A+D+S+NF);
     else if( object_id == CARRO )
-        color.rgb = texture(carro_BP_diff, vec2(U,V)).rgb*(A+D+S+NF);
-    else if( object_id == C_VIDROS )
-        color.rgb = vec3(0.0f,0.0f,0.0f)+D+S+NF;
+        {
+            if(parte_carro == 1)
+                color.rgb = vec3(0.2,0.2,0.9).rgb;
+            else if(parte_carro == 2)
+                color.rgb = vec3(0.0,0.0,0.0).rgb;
+            else if(parte_carro == 3)
+                color.rgb = texture(car_Logo, vec2(U,V)).rgb;
+            else if(parte_carro == 4)
+                color.rgb = texture(car_Plaque, vec2(U,V)).rgb;
+            else if(parte_carro == 5)
+                color.rgb = texture(car_GL, vec2(U,V)).rgb;
+            else if(parte_carro == 6)
+                color.rgb = texture(car_BL1, vec2(U,V)).rgb;
+            else if(parte_carro == 7)
+                color.rgb = texture(car_BL2, vec2(U,V)).rgb;
+            else if(parte_carro == 8)
+                color.rgb = texture(car_Tire, vec2(U,V)).rgb;
+
+            color.rgb*=(A+D+S+NF);
+        }
     else if( object_id == ARVORE && tronco )
         color.rgb = texture(bark, vec2(U,V)).rgb*(A+D+NF);
     else if( object_id == ARVORE && tronco == false )

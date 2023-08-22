@@ -131,6 +131,13 @@ typedef struct monstro
     int vidas;
 } MONSTRO;
 
+typedef struct carro
+{
+    // Variáveis que definem o carro que o jogador precisa consertar
+    glm::vec4 pos;
+    float estado;
+} CAR;
+
 typedef struct arvore
 {
     // Variáveis que definem a posição das arvores
@@ -183,6 +190,7 @@ void TextRendering_PrintMatrixVectorProductDivW(GLFWwindow* window, glm::mat4 M,
 void TextRendering_ShowModelViewProjection(GLFWwindow* window, glm::mat4 projection, glm::mat4 view, glm::mat4 model, glm::vec4 p_model);
 void TextRendering_ShowProjection(GLFWwindow* window);
 void TextRendering_ShowFramesPerSecond(GLFWwindow* window);
+void TextRendering_ShowCarTip(GLFWwindow* window, float estado_carro);
 
 // Funções callback para comunicação com o sistema operacional e interação do
 // usuário. Veja mais comentários nas definições das mesmas, abaixo.
@@ -253,6 +261,7 @@ bool tecla_S_pressionada = false;
 bool tecla_D_pressionada = false;
 bool tecla_F_pressionada = false;     // Lanterna (ligar/desligar)
 bool tecla_R_pressionada = false;     // Recarrega arma
+bool tecla_E_pressionada = false;     // Conserta o carro
 bool tecla_SPACE_pressionada = false; // Pulo
 bool tecla_SHIFT_pressionada = false; // Corrida
 
@@ -269,6 +278,7 @@ float movimento_crosshair;
 bool lanterna_ligada;
 int bala_atual=0;
 bool reload_active = false;
+bool jogador_proximo_do_carro;
 
 // Variáveis que controlam rotação do antebraço
 float g_ForearmAngleZ = 0.0f;
@@ -297,6 +307,7 @@ GLint lanterna_ligada_uniform;
 GLint smoke_life_uniform;
 GLint nozzle_flash_uniform;
 GLint tronco_uniform;
+GLint parte_carro_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
@@ -382,17 +393,32 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/Textures/flashlight_H.jpg");                 // lanterna
     LoadTextureImage("../../data/Textures/CrossHair.png");                    // crosshair
     LoadTextureImage("../../data/Textures/chao_normal.jpg");                  // chao_normal
+
+    // Fantasmas
     LoadTextureImage("../../data/Textures/skull_diff.png");                   // skull_diff
     LoadTextureImage("../../data/Textures/skull_nm.png");                     // skull_normal
+
+    // Partículas de fumaça
     LoadTextureImage("../../data/Textures/smoke.png");                        // smoke
+
+    // Árvores
     LoadTextureImage("../../data/Textures/bark1.jpg");                        // bark
     LoadTextureImage("../../data/Textures/leaf.png");                         // folhas
+
+    // Cabine
     LoadTextureImage("../../data/Textures/WoodCabin.jpg");                    // cabin_diff
     LoadTextureImage("../../data/Textures/WoodCabinNM.jpg");                  // cabin_normal
     LoadTextureImage("../../data/Textures/WoodCabinSM.jpg");                  // cabin_spec
-    LoadTextureImage("../../data/Textures/car_BP.png");                       // carro_BP_diff
-    LoadTextureImage("../../data/Textures/car_BP.png");                       // carro_SP_diff
-    LoadTextureImage("../../data/Textures/car_BP.png");                       // carro_W_diff
+
+    // Texturas do carro
+    LoadTextureImage("../../data/Textures/car_tex/Backlight1.jpg");           // car_BL1
+    LoadTextureImage("../../data/Textures/car_tex/Backlight2.jpg");           // car_BL2
+    LoadTextureImage("../../data/Textures/car_tex/GuidLight.jpg");            // car_GL
+    LoadTextureImage("../../data/Textures/car_tex/Headlight.jpg");            // car_HL
+    LoadTextureImage("../../data/Textures/car_tex/LightBelow.jpg");           // car_BL
+    LoadTextureImage("../../data/Textures/car_tex/Plaque.png");               // car_Plaque
+    LoadTextureImage("../../data/Textures/car_tex/SamandLogo.png");           // car_Logo
+    LoadTextureImage("../../data/Textures/car_tex/Tire.png");                 // car_Tire
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/Objects/sphere.obj");
@@ -435,13 +461,9 @@ int main(int argc, char* argv[])
     ComputeNormals(&cabinmodel);
     BuildTrianglesAndAddToVirtualScene(&cabinmodel);
 
-    ObjModel carmodel("../../data/Objects/Vazz.obj");
+    ObjModel carmodel("../../data/Objects/car.obj");
     ComputeNormals(&carmodel);
     BuildTrianglesAndAddToVirtualScene(&carmodel);
-
-    ObjModel carglassmodel("../../data/Objects/carglass.obj");
-    ComputeNormals(&carglassmodel);
-    BuildTrianglesAndAddToVirtualScene(&carglassmodel);
 
     if ( argc > 1 )
     {
@@ -478,6 +500,10 @@ int main(int argc, char* argv[])
         monstro[i].pos = {rand()%100, (rand()%10*0.1+0.1)*1.4f, rand()%100,1.0f};
         monstro[i].orientacao = {0.0f, 0.0f, 0.0f, 0.0f};
     }
+
+    CAR carro;
+    carro.pos = {6.0f, 0.0f, 0.0f, 1.0f};
+    carro.estado = 0.0f;
 
     // Definimos a matriz ammo que irá guardar informações sobre a munição
     AMMO ammo[N_AMMO];
@@ -680,7 +706,7 @@ int main(int argc, char* argv[])
 
         // Atirar ativa a bala atual, zerando seu timer de atividade e avançando para a próxima bala
         cooldown_tiro += delta_t;
-        if(cooldown_tiro >= 0.4f&&reload_active==false)
+        if(cooldown_tiro >= 0.4f&&reload_active==false&&tecla_E_pressionada==false)
             if(g_LeftMouseButtonPressed)
             {
                 for(int i=0; i<N_AMMO; i++)
@@ -783,6 +809,17 @@ int main(int argc, char* argv[])
         }
 
 
+        // ---------------------------------------------------------- CARRO -------------------------------------------------------------
+
+        // Se o jogador estiver próximo do carro, ele terá a opção de consertá-lo pressionando E.
+        if(sqrt(pow(jogador.pos[0]-carro.pos[0],2)+pow(jogador.pos[2]-carro.pos[2],2)) < 3.0f)
+            jogador_proximo_do_carro = true;
+        else
+            jogador_proximo_do_carro = false;
+
+        if(jogador_proximo_do_carro && tecla_E_pressionada)
+            carro.estado += speed_base * 0.2 * delta_t;
+
         // Computamos a matriz "View" utilizando os parâmetros da câmera para definir o sistema de coordenadas da câmera.
         glm::mat4 view = Matrix_Camera_View(jogador.camera, camera_view_vector, vv);
 
@@ -832,7 +869,6 @@ int main(int argc, char* argv[])
         #define ARVORE  9
         #define CABINE  10
         #define CARRO  11
-        #define C_VIDROS  12
 
         // SPHERE
         glDisable(GL_DEPTH_TEST);
@@ -860,46 +896,47 @@ int main(int argc, char* argv[])
         DrawVirtualObject("Roof");
 
         // CARRO & VIDROS
-        model = Matrix_Translate(6.0f, 0.0f, 0.0f)
-              * Matrix_Scale(0.03f,0.03f,0.03f);
+        model = Matrix_Translate(carro.pos[0], 0.0f, carro.pos[2])
+              * Matrix_Scale(0.01f,0.01f,0.01f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, CARRO);
-        DrawVirtualObject("Front_logo");
-        DrawVirtualObject("Back_light");
-        DrawVirtualObject("Exhaust");
-        DrawVirtualObject("Front_down_light");
-        DrawVirtualObject("Front_middle_black");
-        DrawVirtualObject("Side_light");
-        DrawVirtualObject("Front_fender");
-        DrawVirtualObject("front_light_left");
-        DrawVirtualObject("Back_edge");
-        DrawVirtualObject("Car_body");
-        DrawVirtualObject("Back_fender");
-        DrawVirtualObject("Wheel_RF");
-        DrawVirtualObject("Wheel_RB");
-        DrawVirtualObject("Front_up_light_lamp");
-        DrawVirtualObject("Wheel_LF");
-        DrawVirtualObject("Wheel_LB");
-        DrawVirtualObject("Dvornik_left");
-        DrawVirtualObject("Dvornik_right");
-        DrawVirtualObject("Mirrors");
-        DrawVirtualObject("front_light_right");
-        DrawVirtualObject("Back_license_plate2");
-        DrawVirtualObject("Door_LB");
-        DrawVirtualObject("Door_RB");
-        DrawVirtualObject("Door_RF");
-        DrawVirtualObject("Door_LF");
-        DrawVirtualObject("Back_door");
-        DrawVirtualObject("Bagajnik");
+        // Body
+        glUniform1i(parte_carro_uniform, 1);
+        DrawVirtualObject("Body1");
+        DrawVirtualObject("Steel");
+        DrawVirtualObject("UnderCar");
+        DrawVirtualObject("Hood");
+        DrawVirtualObject("Body");
+        // Vidros
+        glUniform1i(parte_carro_uniform, 2);
+        DrawVirtualObject("Glass");
+        DrawVirtualObject("Plastik");
 
-        // C_VIDROS
-        model = Matrix_Translate(6.0f, 0.0f, 0.0f)
-              * Matrix_Scale(0.03f,0.03f,0.03f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, C_VIDROS);
-        DrawVirtualObject("Front_glass");
-        DrawVirtualObject("Back_glass");
-        DrawVirtualObject("Sideglass");
+        DrawVirtualObject("Light1");
+        DrawVirtualObject("Light2");
+        DrawVirtualObject("Light3");
+        // Logo
+        glUniform1i(parte_carro_uniform, 3);
+        DrawVirtualObject("Logo");
+        // Placa
+        glUniform1i(parte_carro_uniform, 4);
+        DrawVirtualObject("Plaque");
+        DrawVirtualObject("Plaque1");
+        // Pisca
+        glUniform1i(parte_carro_uniform, 5);
+        DrawVirtualObject("GuidLight1");
+        DrawVirtualObject("GuidLight");
+        // Faróis
+        glUniform1i(parte_carro_uniform, 6);
+        DrawVirtualObject("Light");
+
+        glUniform1i(parte_carro_uniform, 7);
+        // Pneus
+        glUniform1i(parte_carro_uniform, 8);
+        DrawVirtualObject("Tire");
+        DrawVirtualObject("Tire1");
+        DrawVirtualObject("Tire2");
+        DrawVirtualObject("Tire3");
 
         // BULLET
         for(int i=0; i<N_AMMO; i++)
@@ -914,10 +951,27 @@ int main(int argc, char* argv[])
                 DrawVirtualObject("45_ACP_Low_Poly");
             }
 
-        // SKULL & EYE
+        // ARVORES
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glDisable(GL_DEPTH_TEST);
+        for(int i=0; i<NUM_ARVORES; i++)
+        {
+            // TRONCO
+            model = Matrix_Translate(arvores[i].pos.x,0.0f,arvores[i].pos.z)
+                  * Matrix_Scale(1.0f,1.0f,1.0f)
+                  * Matrix_Rotate_Y(arvores[i].rotacao);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, ARVORE);
+            glUniform1i(tronco_uniform, true);
+            DrawVirtualObject("bark1");
+            // FOLHAS
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, ARVORE);
+            glUniform1i(tronco_uniform, false);
+            DrawVirtualObject("leaves1");
+        }
+
+        // SKULL & EYE
         for(int i=0; i<N_MONSTROS; i++)
         {
             model = Matrix_Translate(monstro[i].pos[0], monstro[i].pos[1], monstro[i].pos[2])
@@ -937,25 +991,6 @@ int main(int argc, char* argv[])
                 glUniform1i(g_object_id_uniform, EYE);
                 DrawVirtualObject("eye");
             PopMatrix(model);
-        }
-        glEnable(GL_DEPTH_TEST);
-
-        // ARVORES
-        for(int i=0; i<NUM_ARVORES; i++)
-        {
-            // TRONCO
-            model = Matrix_Translate(arvores[i].pos.x,0.0f,arvores[i].pos.z)
-                  * Matrix_Scale(1.0f,1.0f,1.0f)
-                  * Matrix_Rotate_Y(arvores[i].rotacao);
-            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-            glUniform1i(g_object_id_uniform, ARVORE);
-            glUniform1i(tronco_uniform, true);
-            DrawVirtualObject("bark1");
-            // FOLHAS
-            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-            glUniform1i(g_object_id_uniform, ARVORE);
-            glUniform1i(tronco_uniform, false);
-            DrawVirtualObject("leaves1");
         }
 
         // Resetamos a matriz View para que os objetos carregados a partir daqui não se movimentem na tela.
@@ -992,7 +1027,7 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, REVOLVER);
         DrawVirtualObject("Handle");
-        DrawVirtualObject("Body");
+        DrawVirtualObject("BodyR");
         DrawVirtualObject("Back_Trigger");
         DrawVirtualObject("Trigger");
         DrawVirtualObject("Chamber_Holder");
@@ -1009,6 +1044,10 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, SCREEN);
         DrawVirtualObject("the_screen");
         glEnable(GL_DEPTH_TEST);
+
+        // Desenhamos uma instrução para o jogador se ele estiver próximo do carro
+        if(jogador_proximo_do_carro)
+            TextRendering_ShowCarTip(window, carro.estado);
 
         // Imprimimos a quantidade de munição que o jogador possui
         TextRendering_ShowAMMO(window, jogador.ammo);
@@ -1176,6 +1215,7 @@ void LoadShadersFromFiles()
     smoke_life_uniform = glGetUniformLocation(g_GpuProgramID, "smoke_life"); // Variável usada para definir a textura das partículas de fumaça
     nozzle_flash_uniform = glGetUniformLocation(g_GpuProgramID, "nozzle_flash"); // Variável usada para dizer se é para desenhar o flash do tiro da arma
     tronco_uniform = glGetUniformLocation(g_GpuProgramID, "tronco"); // Variável usada para dizer se é para desenhar o tronco ou as folhas da árvore
+    parte_carro_uniform = glGetUniformLocation(g_GpuProgramID, "parte_carro"); // Variável usada para definir a textura de cada parte do carro
 
     // Variáveis em "shader_fragment.glsl" para acesso das imagens de textura
     glUseProgram(g_GpuProgramID);
@@ -1192,9 +1232,14 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "cabine_diff"), 10);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "cabine_normal"), 11);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "cabine_spec"), 12);
-    glUniform1i(glGetUniformLocation(g_GpuProgramID, "carro_BP_diff"), 13);
-    glUniform1i(glGetUniformLocation(g_GpuProgramID, "carro_SP_diff"), 14);
-    glUniform1i(glGetUniformLocation(g_GpuProgramID, "carro_W_diff"), 15);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_BL1"), 13);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_BL2"), 14);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_GL"), 15);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_HL"), 16);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_BL"), 17);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_Plaque"), 18);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_Logo"), 19);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_Tire"), 20);
 
     glUseProgram(0);
 }
@@ -1700,6 +1745,14 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
             tecla_D_pressionada = false;
     }
 
+    if (key == GLFW_KEY_E)
+    {
+        if (action == GLFW_PRESS)
+            tecla_E_pressionada = true;
+        else if (action == GLFW_RELEASE)
+            tecla_E_pressionada = false;
+    }
+
         if (key == GLFW_KEY_F)
     {
         if (action == GLFW_PRESS && tecla_F_pressionada == false)
@@ -1912,6 +1965,22 @@ void TextRendering_ShowAMMO(GLFWwindow* window, int ammo)
     float charwidth = TextRendering_CharWidth(window);
 
     TextRendering_PrintString(window, buffer, -0.85f-(numchars + 1)*charwidth, -0.95f+lineheight, 5.0f);
+}
+
+// Escrevemos na tela a instrução para conserto do carro
+void TextRendering_ShowCarTip(GLFWwindow* window, float estado_carro)
+{
+    if ( !g_ShowInfoText )
+        return;
+
+    char buffer[200];
+
+    int numchars = snprintf(buffer, 200, "Pressione E para consertar o carro (%.1f/100)", estado_carro);
+
+    float lineheight = TextRendering_LineHeight(window);
+    float charwidth = TextRendering_CharWidth(window);
+
+    TextRendering_PrintString(window, buffer, 0.0f-(numchars + 1)*charwidth, -0.2f+lineheight, 2.0f);
 }
 
 // Função para debugging: imprime no terminal todas informações de um modelo
