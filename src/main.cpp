@@ -213,7 +213,8 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 void centerMouse(GLFWwindow* window, int screenWidth, int screenHeight); // Centraliza o mouse na tela
 void TextRendering_ShowSecondsEllapsed(GLFWwindow* window); // Mostra quandos segundos se passaram
 void TextRendering_ShowAMMO(GLFWwindow* window, int ammo);  // Mostra a munição do jogador
-void TextRendering_Menu(GLFWwindow* window);
+void TextRendering_Menu(GLFWwindow* window); // texto do menu
+glm::vec4 calculateBezierPoint(const glm::vec4& P0, const glm::vec4& P1, const glm::vec4& P2, const glm::vec4& P3, float t);
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
@@ -513,11 +514,16 @@ int main(int argc, char* argv[])
     // Definimos uma AABB teste
     AABB teste(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.5f, 5.0f, 0.5f));
 
+    //vetor q guarda as posições iniciais dos monstros
+
+    std::vector<glm::vec4> posicoesIniciais(N_MONSTROS);
+
     // Definimos a matriz monstro que irá guardar informações dos monstros
     MONSTRO monstro[N_MONSTROS];
     for(int i=0; i<N_MONSTROS; i++)
     {
-        monstro[i].pos = {rand()%100, (rand()%10*0.1+0.1)*1.4f, rand()%100,1.0f};
+        posicoesIniciais[i] = glm::vec4(rand() % 100, (rand() % 10 * 0.1 + 0.1) * 1.4f, rand() % 100, 1.0f);
+        monstro[i].pos = posicoesIniciais[i];
         monstro[i].orientacao = {0.0f, 0.0f, 0.0f, 0.0f};
     }
 
@@ -749,566 +755,567 @@ int main(int argc, char* argv[])
 
         while (sair_menu && !glfwWindowShouldClose(window)){
 
-        glfwSetWindowMonitor(window, _fullscreen ? glfwGetPrimaryMonitor() : NULL, 0, 0, 4000, 4000, GLFW_DONT_CARE);
+            glfwSetWindowMonitor(window, _fullscreen ? glfwGetPrimaryMonitor() : NULL, 0, 0, 4000, 4000, GLFW_DONT_CARE);
 
-        glUniform1i(tela_de_menu_uniform, false);
-        // Variáveis de tempo
-        float current_time = (float)glfwGetTime();
-        delta_t = current_time - prev_time;
-        prev_time = current_time;
+            glUniform1i(tela_de_menu_uniform, false);
+            // Variáveis de tempo
+            float current_time = (float)glfwGetTime();
+            delta_t = current_time - prev_time;
+            prev_time = current_time;
 
-        // Aqui executamos as operações de renderização
+            // Aqui executamos as operações de renderização
 
-        // Definimos a cor do "fundo" do framebuffer como branco.  Tal cor é
-        // definida como coeficientes RGBA: Red, Green, Blue, Alpha; isto é:
-        // Vermelho, Verde, Azul, Alpha (valor de transparência).
-        // Conversaremos sobre sistemas de cores nas aulas de Modelos de Iluminação.
-        //
-        //           R     G     B     A
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+            // Definimos a cor do "fundo" do framebuffer como branco.  Tal cor é
+            // definida como coeficientes RGBA: Red, Green, Blue, Alpha; isto é:
+            // Vermelho, Verde, Azul, Alpha (valor de transparência).
+            // Conversaremos sobre sistemas de cores nas aulas de Modelos de Iluminação.
+            //
+            //           R     G     B     A
+            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-        // "Pintamos" todos os pixels do framebuffer com a cor definida acima,
-        // e também resetamos todos os pixels do Z-buffer (depth buffer).
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            // "Pintamos" todos os pixels do framebuffer com a cor definida acima,
+            // e também resetamos todos os pixels do Z-buffer (depth buffer).
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Pedimos para a GPU utilizar o programa de GPU criado acima (contendo
-        // os shaders de vértice e fragmentos).
-        glUseProgram(g_GpuProgramID);
+            // Pedimos para a GPU utilizar o programa de GPU criado acima (contendo
+            // os shaders de vértice e fragmentos).
+            glUseProgram(g_GpuProgramID);
 
-        // Computamos a posição da câmera utilizando coordenadas esféricas.  As
-        // variáveis g_CameraDistance, g_CameraPhi, e g_CameraTheta são
-        // controladas pelo mouse do usuário. Veja as funções CursorPosCallback()
-        // e ScrollCallback().
-        float vy = sin(g_CameraPhi);
-        float vz = cos(g_CameraPhi)*cos(g_CameraTheta);
-        float vx = cos(g_CameraPhi)*sin(g_CameraTheta);
+            // Computamos a posição da câmera utilizando coordenadas esféricas.  As
+            // variáveis g_CameraDistance, g_CameraPhi, e g_CameraTheta são
+            // controladas pelo mouse do usuário. Veja as funções CursorPosCallback()
+            // e ScrollCallback().
+            float vy = sin(g_CameraPhi);
+            float vz = cos(g_CameraPhi)*cos(g_CameraTheta);
+            float vx = cos(g_CameraPhi)*sin(g_CameraTheta);
 
-        // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
-        // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
-        // glm::vec4 camera_look        =  // Direção para onde a câmera estará olhando
-        glm::vec4 camera_view_vector = glm::vec4(vx,vy,vz,0.0f); // Vetor "view", sentido para onde a câmera está virada
-        glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up"
-        glm::vec4 vw = -glm::normalize(camera_view_vector);
-        glm::vec4 vu = glm::normalize(crossproduct(camera_up_vector, vw));
-        glm::vec4 vv = crossproduct(vw, vu);
+            // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
+            // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
+            // glm::vec4 camera_look        =  // Direção para onde a câmera estará olhando
+            glm::vec4 camera_view_vector = glm::vec4(vx,vy,vz,0.0f); // Vetor "view", sentido para onde a câmera está virada
+            glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up"
+            glm::vec4 vw = -glm::normalize(camera_view_vector);
+            glm::vec4 vu = glm::normalize(crossproduct(camera_up_vector, vw));
+            glm::vec4 vv = crossproduct(vw, vu);
 
-        // A câmera pode sofrer efeitos como shaking durante o dano ou na caminhada, mas isso não irá mudar a posição do jogador.
+            // A câmera pode sofrer efeitos como shaking durante o dano ou na caminhada, mas isso não irá mudar a posição do jogador.
 
-        // --------------------------------------------------------  JOGADOR  -----------------------------------------------------------
+            // --------------------------------------------------------  JOGADOR  -----------------------------------------------------------
 
-        // Definimos a bounding box do jogador
-        jogador.aabb = AABB(glm::vec3(jogador.pos[0]-0.35f, jogador.pos[1], jogador.pos[2]-0.35f), glm::vec3(jogador.pos[0]+0.35f,jogador.pos[1]+1.4f,jogador.pos[2]+0.35f));
+            // Definimos a bounding box do jogador
+            jogador.aabb = AABB(glm::vec3(jogador.pos[0]-0.35f, jogador.pos[1], jogador.pos[2]-0.35f), glm::vec3(jogador.pos[0]+0.35f,jogador.pos[1]+1.4f,jogador.pos[2]+0.35f));
 
-        // Faz o jogador correr quando pressiona SHIFT e não está recarregando
-        speed = speed_base;
-        if (tecla_SHIFT_pressionada&&reload_active==false)
-        {
-            speed = speed_base*2;
-        }
+            // Faz o jogador correr quando pressiona SHIFT e não está recarregando
+            speed = speed_base;
+            if (tecla_SHIFT_pressionada&&reload_active==false)
+            {
+                speed = speed_base*2;
+            }
 
 
-        #define S 1
-        // Realiza a movimentação do jogador, atualizando sua posição anterior e atual
-        if (tecla_W_pressionada)
-        {
-            float sentido = 1;
-            if (jogador.aabb.EstaColidindoComAABB(teste))
-                sentido = -S;
-            jogador.pos += - vw * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
-        }
+            #define S 1
+            // Realiza a movimentação do jogador, atualizando sua posição anterior e atual
+            if (tecla_W_pressionada)
+            {
+                float sentido = 1;
+                if (jogador.aabb.EstaColidindoComAABB(teste))
+                    sentido = -S;
+                jogador.pos += - vw * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            }
 
-        if (tecla_S_pressionada)
-        {
-            float sentido = 1;
-            if (jogador.aabb.EstaColidindoComAABB(teste))
-                sentido = -S;
-            jogador.pos += vw * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
-        }
+            if (tecla_S_pressionada)
+            {
+                float sentido = 1;
+                if (jogador.aabb.EstaColidindoComAABB(teste))
+                    sentido = -S;
+                jogador.pos += vw * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            }
 
-        if (tecla_D_pressionada)
-        {
-            float sentido = 1;
-            if (jogador.aabb.EstaColidindoComAABB(teste))
-                sentido = -S;
-            jogador.pos += vu * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
-        }
+            if (tecla_D_pressionada)
+            {
+                float sentido = 1;
+                if (jogador.aabb.EstaColidindoComAABB(teste))
+                    sentido = -S;
+                jogador.pos += vu * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            }
 
-        if (tecla_A_pressionada)
-        {
-            float sentido = 1;
-            if (jogador.aabb.EstaColidindoComAABB(teste))
-                sentido = -S;
-            jogador.pos += -vu * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
-        }
+            if (tecla_A_pressionada)
+            {
+                float sentido = 1;
+                if (jogador.aabb.EstaColidindoComAABB(teste))
+                    sentido = -S;
+                jogador.pos += -vu * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            }
 
-        // Prende o jogador em um 'loop' dentro da área de jogo, caso ele se afaste demais da cabine
-        if ( sqrt(pow(jogador.pos[0],2)+pow(jogador.pos[2],2)) >= ARVORES_DIST + 27.0f)
-        {
-            jogador.pos[0] = -jogador.pos[0];
-            jogador.pos[2] = -jogador.pos[2];
-        }
+            // Prende o jogador em um 'loop' dentro da área de jogo, caso ele se afaste demais da cabine
+            if ( sqrt(pow(jogador.pos[0],2)+pow(jogador.pos[2],2)) >= ARVORES_DIST + 27.0f)
+            {
+                jogador.pos[0] = -jogador.pos[0];
+                jogador.pos[2] = -jogador.pos[2];
+            }
 
-        // "Balanço" enquanto o jogador anda no chão.
-        if((tecla_A_pressionada||tecla_D_pressionada||tecla_S_pressionada||tecla_W_pressionada) && Yspeed == 0.0f)
-            jogador_andando = true;
-        else
-            jogador_andando = false;
+            // "Balanço" enquanto o jogador anda no chão.
+            if((tecla_A_pressionada||tecla_D_pressionada||tecla_S_pressionada||tecla_W_pressionada) && Yspeed == 0.0f)
+                jogador_andando = true;
+            else
+                jogador_andando = false;
 
-        if(jogador_andando)
-        {
-            if (shake_cima)
+            if(jogador_andando)
+            {
+                if (shake_cima)
+                {
+                    jogador.camera[1] += 0.1*(speed * delta_t);
+                    if(jogador.camera[1]>=jogador.pos[1]+1.4f)
+                        shake_cima = false;
+                }
+                else
+                {
+                    jogador.camera[1] -= 0.1*(speed * delta_t);
+                    if(jogador.camera[1]<jogador.pos[1]+1.3f)
+                        shake_cima = true;
+                }
+            }
+            else if (jogador.camera[1] < jogador.pos[1]+1.4f && jogador.pos[1] <= 0.0f)
             {
                 jogador.camera[1] += 0.1*(speed * delta_t);
-                if(jogador.camera[1]>=jogador.pos[1]+1.4f)
-                    shake_cima = false;
+                shake_cima = false;
             }
             else
+                jogador.camera[1] = jogador.pos[1]+1.4f;
+
+            // Gravidade (reduz a velocidade em Y gradualmente com o tempo até chegar no chão
+            if (jogador.aabb.EstaColidindoComPlano(chao)==false)
             {
-                jogador.camera[1] -= 0.1*(speed * delta_t);
-                if(jogador.camera[1]<jogador.pos[1]+1.3f)
-                    shake_cima = true;
+                Yspeed -= gravity * delta_t;
             }
-        }
-        else if (jogador.camera[1] < jogador.pos[1]+1.4f && jogador.pos[1] <= 0.0f)
-        {
-            jogador.camera[1] += 0.1*(speed * delta_t);
-            shake_cima = false;
-        }
-        else
-            jogador.camera[1] = jogador.pos[1]+1.4f;
-
-        // Gravidade (reduz a velocidade em Y gradualmente com o tempo até chegar no chão
-        if (jogador.aabb.EstaColidindoComPlano(chao)==false)
-        {
-            Yspeed -= gravity * delta_t;
-        }
-        else
-            Yspeed = 0.0f;
-
-        // Pulo (faz com que a velocidade em Y seja a velocidade base)
-        if (tecla_SPACE_pressionada && jogador.aabb.EstaColidindoComPlano(chao))
-        {
-            Yspeed = speed_base;
-        }
-        // Velocidade no eixo Y
-        jogador.pos[1] += Yspeed*delta_t;
-
-        // Ligar/Desligar lanterna
-        if(tecla_F_pressionada)
-            lanterna_ligada = false;
-        else
-            lanterna_ligada = true;
-
-        // Envia a informação da lanterna para o Fragment Shader, para ligar ou desligar a luz.
-        glUniform1i(lanterna_ligada_uniform, lanterna_ligada ? 1 : 0);
-
-        // O eixo z da câmera sempre é igual ao eixo da posição do jogador
-        jogador.camera[0] = jogador.pos[0];
-        jogador.camera[2] = jogador.pos[2];
-
-        // A posição dos objetos irá se mover conforme o jogador caminha ou recarrega a arma
-        glm::vec3 lanterna_pos = glm::vec3(0.0f,(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f,-0.6f);
-        glm::vec3 revolver_pos = glm::vec3(+0.6f,-(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f-0.4f+reload_move+recoil,-1.2f);
-
-        // ---------------------------------------------------------  AMMO  -------------------------------------------------------------
-
-        #define RELOAD_ANIMATION 0.6f
-        #define RELOAD_SPEED 0.5f
-        // Se estiver com a munição cheia, termina o reload
-        if(reload_active&&jogador.ammo<6)
-        {
-            // Animação de reload
-            if((reload_move >= -RELOAD_ANIMATION&&jogador.ammo<6))
-                reload_move -= RELOAD_ANIMATION * 3 * delta_t;
-
-            // Atraso de reload para cada bala
-            reload_delay += delta_t;
-            if(reload_delay >= RELOAD_SPEED)
-            {
-                jogador.ammo++;
-                reload_delay = 0.0f;
-            }
-        }
-        else
-        {
-            if(jogador.ammo==6&&reload_move<-0.0001f)
-                reload_move += RELOAD_ANIMATION * 3 * delta_t;
-            reload_active = false;
-            if(tecla_R_pressionada)
-                reload_active = true;
-        }
-
-        // Atirar ativa a bala atual, zerando seu timer de atividade e avançando para a próxima bala
-        cooldown_tiro += delta_t;
-        if(cooldown_tiro >= 0.4f&&reload_active==false&&tecla_E_pressionada==false)
-            if(g_LeftMouseButtonPressed)
-            {
-                for(int i=0; i<N_AMMO; i++)
-                    if(ammo[bala_atual].ativa==false&&jogador.ammo>0)
-                    {
-                        ammo[bala_atual].ativa=true;
-                        jogador.ammo--;
-                        smoke_active = true;
-                        recoil_active = true;
-                        ammo[bala_atual].timer=0;
-                        ammo[bala_atual].pos = jogador.camera-vw*0.05f+vu*0.06f;
-                        ammo[bala_atual].orientacao = normalize((ammo[bala_atual].pos-vu*0.0605f) - jogador.camera);
-                        ammo[bala_atual].rotacao = atan2(ammo[bala_atual].orientacao.x, ammo[bala_atual].orientacao.z);
-                        cooldown_tiro = 0.0f;
-                        bala_atual=++bala_atual%N_AMMO;
-                        break;
-                    }
-                    else
-                        bala_atual=++bala_atual%N_AMMO;
-            }
-
-        if(cooldown_tiro <= 0.1)
-            glUniform1i(nozzle_flash_uniform, 1);
-        else
-            glUniform1i(nozzle_flash_uniform, 0);
-
-        // Para cada bala, testa se está ativa, se sim, incrementa seu timer e sua posicao e testa se seu tempo de atividade expirou, se estiver inativa, reseta seus
-        // parâmetros
-        for(int i=0; i<N_AMMO; i++)
-        {
-            if(ammo[i].ativa == true)
-            {
-                ammo[i].timer += delta_t;
-                ammo[i].pos += ammo[i].orientacao * 30.0f * delta_t;
-                if(ammo[i].timer >= 1)
-                    ammo[i].ativa=false;
-            }
-        }
-
-        // ========= RECOIL ANIMATION =========
-        #define RECOIL_ANIMATION 0.6f
-        if(recoil_active)
-        {
-            if(cooldown_tiro < 0.2f)
-                recoil += RECOIL_ANIMATION * delta_t;
             else
+                Yspeed = 0.0f;
+
+            // Pulo (faz com que a velocidade em Y seja a velocidade base)
+            if (tecla_SPACE_pressionada && jogador.aabb.EstaColidindoComPlano(chao))
             {
-                recoil -= RECOIL_ANIMATION * delta_t;
-                if(cooldown_tiro >= 0.4f)
+                Yspeed = speed_base;
+            }
+            // Velocidade no eixo Y
+            jogador.pos[1] += Yspeed*delta_t;
+
+            // Ligar/Desligar lanterna
+            if(tecla_F_pressionada)
+                lanterna_ligada = false;
+            else
+                lanterna_ligada = true;
+
+            // Envia a informação da lanterna para o Fragment Shader, para ligar ou desligar a luz.
+            glUniform1i(lanterna_ligada_uniform, lanterna_ligada ? 1 : 0);
+
+            // O eixo z da câmera sempre é igual ao eixo da posição do jogador
+            jogador.camera[0] = jogador.pos[0];
+            jogador.camera[2] = jogador.pos[2];
+
+            // A posição dos objetos irá se mover conforme o jogador caminha ou recarrega a arma
+            glm::vec3 lanterna_pos = glm::vec3(0.0f,(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f,-0.6f);
+            glm::vec3 revolver_pos = glm::vec3(+0.6f,-(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f-0.4f+reload_move+recoil,-1.2f);
+
+            // ---------------------------------------------------------  AMMO  -------------------------------------------------------------
+
+            #define RELOAD_ANIMATION 0.6f
+            #define RELOAD_SPEED 0.5f
+            // Se estiver com a munição cheia, termina o reload
+            if(reload_active&&jogador.ammo<6)
+            {
+                // Animação de reload
+                if((reload_move >= -RELOAD_ANIMATION&&jogador.ammo<6))
+                    reload_move -= RELOAD_ANIMATION * 3 * delta_t;
+
+                // Atraso de reload para cada bala
+                reload_delay += delta_t;
+                if(reload_delay >= RELOAD_SPEED)
                 {
-                    recoil_active=false;
-                    recoil = 0.0f;
+                    jogador.ammo++;
+                    reload_delay = 0.0f;
                 }
             }
-        }
+            else
+            {
+                if(jogador.ammo==6&&reload_move<-0.0001f)
+                    reload_move += RELOAD_ANIMATION * 3 * delta_t;
+                reload_active = false;
+                if(tecla_R_pressionada)
+                    reload_active = true;
+            }
 
-        // ========= SMOKE PARTICLES =========
-        if(smoke_active)
-        {
-            // Inicializa a direção das partículas aleatoriamente
-            if(smoke_timer == 0.0f)
+            // Atirar ativa a bala atual, zerando seu timer de atividade e avançando para a próxima bala
+            cooldown_tiro += delta_t;
+            if(cooldown_tiro >= 0.4f&&reload_active==false&&tecla_E_pressionada==false)
+                if(g_LeftMouseButtonPressed)
+                {
+                    for(int i=0; i<N_AMMO; i++)
+                        if(ammo[bala_atual].ativa==false&&jogador.ammo>0)
+                        {
+                            ammo[bala_atual].ativa=true;
+                            jogador.ammo--;
+                            smoke_active = true;
+                            recoil_active = true;
+                            ammo[bala_atual].timer=0;
+                            ammo[bala_atual].pos = jogador.camera-vw*0.05f+vu*0.06f;
+                            ammo[bala_atual].orientacao = normalize((ammo[bala_atual].pos-vu*0.0605f) - jogador.camera);
+                            ammo[bala_atual].rotacao = atan2(ammo[bala_atual].orientacao.x, ammo[bala_atual].orientacao.z);
+                            cooldown_tiro = 0.0f;
+                            bala_atual=++bala_atual%N_AMMO;
+                            break;
+                        }
+                        else
+                            bala_atual=++bala_atual%N_AMMO;
+                }
+
+            if(cooldown_tiro <= 0.1)
+                glUniform1i(nozzle_flash_uniform, 1);
+            else
+                glUniform1i(nozzle_flash_uniform, 0);
+
+            // Para cada bala, testa se está ativa, se sim, incrementa seu timer e sua posicao e testa se seu tempo de atividade expirou, se estiver inativa, reseta seus
+            // parâmetros
+            for(int i=0; i<N_AMMO; i++)
+            {
+                if(ammo[i].ativa == true)
+                {
+                    ammo[i].timer += delta_t;
+                    ammo[i].pos += ammo[i].orientacao * 30.0f * delta_t;
+                    if(ammo[i].timer >= 1)
+                        ammo[i].ativa=false;
+                }
+            }
+
+            // ========= RECOIL ANIMATION =========
+            #define RECOIL_ANIMATION 0.6f
+            if(recoil_active)
+            {
+                if(cooldown_tiro < 0.2f)
+                    recoil += RECOIL_ANIMATION * delta_t;
+                else
+                {
+                    recoil -= RECOIL_ANIMATION * delta_t;
+                    if(cooldown_tiro >= 0.4f)
+                    {
+                        recoil_active=false;
+                        recoil = 0.0f;
+                    }
+                }
+            }
+
+            // ========= SMOKE PARTICLES =========
+            if(smoke_active)
+            {
+                // Inicializa a direção das partículas aleatoriamente
+                if(smoke_timer == 0.0f)
+                    for(int i=0; i<SMOKE_P_COUNT; i++)
+                    {
+                        smoke[i].pos[0] = revolver_pos[0]+0.1f;
+                        smoke[i].pos[1] = revolver_pos[1]+0.2f;
+                        // 8 possíveis direções estão entre [0, 2*PI]
+                        float direcao = (rand()%8)*(2*3.14/8);
+                        smoke[i].vel = {cos(direcao),sin(direcao)};
+                        smoke[i].scale = 1.0f;
+                    }
+
+                // Incrementa o timer que define o tempo de vida da particula
+                smoke_timer += delta_t;
+
                 for(int i=0; i<SMOKE_P_COUNT; i++)
                 {
-                    smoke[i].pos[0] = revolver_pos[0]+0.1f;
-                    smoke[i].pos[1] = revolver_pos[1]+0.2f;
-                    // 8 possíveis direções estão entre [0, 2*PI]
-                    float direcao = (rand()%8)*(2*3.14/8);
-                    smoke[i].vel = {cos(direcao),sin(direcao)};
-                    smoke[i].scale = 1.0f;
+                    // Essa variável define qual textura (de 40) que será mostrada no momento
+                    smoke[i].life = int(smoke_timer*125);
+                    // Movimenta a particula na tela
+                    smoke[i].pos += smoke[i].vel*delta_t*0.3f;
+                    smoke[i].scale += smoke[i].scale*(2)*delta_t;
+                }
+                if(smoke_timer >= 0.4f)
+                {
+                    smoke_timer = 0.0f;
+                    smoke_active = false;
+                }
+            }
+
+            // --------------------------------------------------------  MONSTRO  -----------------------------------------------------------
+
+            //float amplitude = 1.0f;
+            //float tbezier = 0;
+            for(int i=0; i<N_MONSTROS; i++)
+            {
+                // Faz o monstro estar sempre olhando para o jogador
+                monstro[i].orientacao = normalize(monstro[i].pos - jogador.pos);
+                // Usado para a matriz de rotação do monstro
+                monstro[i].rotacao = atan2(monstro[i].orientacao.x, monstro[i].orientacao.z) + 3.14f;
+                // Move o monstro em direção ao jogador
+                monstro[i].pos -= monstro[i].orientacao * speed_base * delta_t * glm::vec4(1.0f,0.0f,1.0f,0.0f);
+            }
+
+            // ---------------------------------------------------------- CARRO -------------------------------------------------------------
+
+            // Se o jogador estiver próximo do carro, ele terá a opção de consertá-lo pressionando E.
+            if(sqrt(pow(jogador.pos[0]-carro.pos[0],2)+pow(jogador.pos[2]-carro.pos[2],2)) < 3.0f)
+                jogador_proximo_do_carro = true;
+            else
+                jogador_proximo_do_carro = false;
+
+            if(jogador_proximo_do_carro && tecla_E_pressionada)
+                carro.estado += speed_base * 0.2 * delta_t;
+
+            // Computamos a matriz "View" utilizando os parâmetros da câmera para definir o sistema de coordenadas da câmera.
+            glm::mat4 view = Matrix_Camera_View(jogador.camera, camera_view_vector, vv);
+
+            // Agora computamos a matriz de Projeção.
+            glm::mat4 projection;
+
+            // Note que, no sistema de coordenadas da câmera, os planos near e far
+            // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
+            float nearplane = -0.1f;  // Posição do "near plane"
+            float farplane  = -25.0f; // Posição do "far plane"
+
+
+            // Projeção Perspectiva.
+            // Para definição do field of view (FOV), veja slides 205-215 do documento Aula_09_Projecoes.pdf.
+            float field_of_view = 3.141592 / 3.0f;
+            glm::mat4 perspective = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
+
+            // Projeção Ortográfica.
+            // Para definição dos valores l, r, b, t ("left", "right", "bottom", "top"),
+            // PARA PROJEÇÃO ORTOGRÁFICA veja slides 219-224 do documento Aula_09_Projecoes.pdf.
+            // Para simular um "zoom" ortográfico, computamos o valor de "t"
+            // utilizando a variável g_CameraDistance.
+            float t = 1.5f*g_CameraDistance/2.5f;
+            float b = -t;
+            float r = t*g_ScreenRatio;
+            float l = -r;
+            glm::mat4 orthographic = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
+
+
+            glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
+
+            // Enviamos as matrizes "view" e "projection" para a placa de vídeo
+            // (GPU). Veja o arquivo "shader_vertex.glsl", onde estas são
+            // efetivamente aplicadas em todos os pontos.
+            glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
+            glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(perspective));
+
+            #define SPHERE 0
+            #define BULLET 1
+            #define PLANE  2
+            #define FLASHLIGHT  3
+            #define REVOLVER  4
+            #define SCREEN  5
+            #define SKULL  6
+            #define EYE  7
+            #define SMOKE  8
+            #define ARVORE  9
+            #define CABINE  10
+            #define CARRO  11
+
+            // SPHERE
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_CULL_FACE);
+            model = Matrix_Translate(jogador.camera[0], jogador.camera[1], jogador.camera[2]);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, SPHERE);
+            DrawVirtualObject("the_sphere");
+            glEnable(GL_CULL_FACE);
+            glEnable(GL_DEPTH_TEST);
+
+            // PLANE
+            model = Matrix_Translate(0.0f, 0.0f, 0.0f)
+                  * Matrix_Scale(350.0f,1.0f,350.0f);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, PLANE);
+            DrawVirtualObject("the_plane");
+
+            // CABINE
+            model = Matrix_Translate(0.0f, 0.0f, 0.0f)
+                  * Matrix_Scale(0.1f,0.1f,0.1f);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, CABINE);
+            DrawVirtualObject("WoodCabin");
+            DrawVirtualObject("Roof");
+
+            // CARRO & VIDROS
+            model = Matrix_Translate(carro.pos[0], 0.0f, carro.pos[2])
+                  * Matrix_Scale(0.01f,0.01f,0.01f);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, CARRO);
+            // Body
+            glUniform1i(parte_carro_uniform, 1);
+            DrawVirtualObject("Body1");
+            DrawVirtualObject("Steel");
+            DrawVirtualObject("UnderCar");
+            DrawVirtualObject("Hood");
+            DrawVirtualObject("Body");
+            // Vidros
+            glUniform1i(parte_carro_uniform, 2);
+            DrawVirtualObject("Glass");
+            DrawVirtualObject("Plastik");
+
+            DrawVirtualObject("Light1");
+            DrawVirtualObject("Light2");
+            DrawVirtualObject("Light3");
+            // Logo
+            glUniform1i(parte_carro_uniform, 3);
+            DrawVirtualObject("Logo");
+            // Placa
+            glUniform1i(parte_carro_uniform, 4);
+            DrawVirtualObject("Plaque");
+            DrawVirtualObject("Plaque1");
+            // Pisca
+            glUniform1i(parte_carro_uniform, 5);
+            DrawVirtualObject("GuidLight1");
+            DrawVirtualObject("GuidLight");
+            // Faróis
+            glUniform1i(parte_carro_uniform, 6);
+            DrawVirtualObject("Light");
+
+            glUniform1i(parte_carro_uniform, 7);
+            // Pneus
+            glUniform1i(parte_carro_uniform, 8);
+            DrawVirtualObject("Tire");
+            DrawVirtualObject("Tire1");
+            DrawVirtualObject("Tire2");
+            DrawVirtualObject("Tire3");
+
+            // BULLET
+            for(int i=0; i<N_AMMO; i++)
+                if(ammo[i].ativa)
+                {
+                    model = Matrix_Translate(ammo[i].pos.x, ammo[i].pos.y, ammo[i].pos.z)
+                          * Matrix_Scale(0.04f,0.04f,0.04f)
+                          * Matrix_Rotate_Y(ammo[i].rotacao)
+                          * Matrix_Rotate_X(3.14/2);
+                    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, BULLET);
+                    DrawVirtualObject("45_ACP_Low_Poly");
                 }
 
-            // Incrementa o timer que define o tempo de vida da particula
-            smoke_timer += delta_t;
-
-            for(int i=0; i<SMOKE_P_COUNT; i++)
+            // ARVORES
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            for(int i=0; i<NUM_ARVORES; i++)
             {
-                // Essa variável define qual textura (de 40) que será mostrada no momento
-                smoke[i].life = int(smoke_timer*125);
-                // Movimenta a particula na tela
-                smoke[i].pos += smoke[i].vel*delta_t*0.3f;
-                smoke[i].scale += smoke[i].scale*(2)*delta_t;
-            }
-            if(smoke_timer >= 0.4f)
-            {
-                smoke_timer = 0.0f;
-                smoke_active = false;
-            }
-        }
-
-        // --------------------------------------------------------  MONSTRO  -----------------------------------------------------------
-
-        for(int i=0; i<N_MONSTROS; i++)
-        {
-            // Faz o monstro estar sempre olhando para o jogador
-            monstro[i].orientacao = normalize(monstro[i].pos - jogador.pos);
-            // Usado para a matriz de rotação do monstro
-            monstro[i].rotacao = atan2(monstro[i].orientacao.x, monstro[i].orientacao.z) + 3.14f;
-            // Move o monstro em direção ao jogador
-            monstro[i].pos -= monstro[i].orientacao * speed_base * delta_t * glm::vec4(1.0f,0.0f,1.0f,0.0f);
-        }
-
-
-        // ---------------------------------------------------------- CARRO -------------------------------------------------------------
-
-        // Se o jogador estiver próximo do carro, ele terá a opção de consertá-lo pressionando E.
-        if(sqrt(pow(jogador.pos[0]-carro.pos[0],2)+pow(jogador.pos[2]-carro.pos[2],2)) < 3.0f)
-            jogador_proximo_do_carro = true;
-        else
-            jogador_proximo_do_carro = false;
-
-        if(jogador_proximo_do_carro && tecla_E_pressionada)
-            carro.estado += speed_base * 0.2 * delta_t;
-
-        // Computamos a matriz "View" utilizando os parâmetros da câmera para definir o sistema de coordenadas da câmera.
-        glm::mat4 view = Matrix_Camera_View(jogador.camera, camera_view_vector, vv);
-
-        // Agora computamos a matriz de Projeção.
-        glm::mat4 projection;
-
-        // Note que, no sistema de coordenadas da câmera, os planos near e far
-        // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
-        float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -25.0f; // Posição do "far plane"
-
-
-        // Projeção Perspectiva.
-        // Para definição do field of view (FOV), veja slides 205-215 do documento Aula_09_Projecoes.pdf.
-        float field_of_view = 3.141592 / 3.0f;
-        glm::mat4 perspective = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
-
-        // Projeção Ortográfica.
-        // Para definição dos valores l, r, b, t ("left", "right", "bottom", "top"),
-        // PARA PROJEÇÃO ORTOGRÁFICA veja slides 219-224 do documento Aula_09_Projecoes.pdf.
-        // Para simular um "zoom" ortográfico, computamos o valor de "t"
-        // utilizando a variável g_CameraDistance.
-        float t = 1.5f*g_CameraDistance/2.5f;
-        float b = -t;
-        float r = t*g_ScreenRatio;
-        float l = -r;
-        glm::mat4 orthographic = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
-
-
-        glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
-
-        // Enviamos as matrizes "view" e "projection" para a placa de vídeo
-        // (GPU). Veja o arquivo "shader_vertex.glsl", onde estas são
-        // efetivamente aplicadas em todos os pontos.
-        glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
-        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(perspective));
-
-        #define SPHERE 0
-        #define BULLET 1
-        #define PLANE  2
-        #define FLASHLIGHT  3
-        #define REVOLVER  4
-        #define SCREEN  5
-        #define SKULL  6
-        #define EYE  7
-        #define SMOKE  8
-        #define ARVORE  9
-        #define CABINE  10
-        #define CARRO  11
-
-        // SPHERE
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_CULL_FACE);
-        model = Matrix_Translate(jogador.camera[0], jogador.camera[1], jogador.camera[2]);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, SPHERE);
-        DrawVirtualObject("the_sphere");
-        glEnable(GL_CULL_FACE);
-        glEnable(GL_DEPTH_TEST);
-
-        // PLANE
-        model = Matrix_Translate(0.0f, 0.0f, 0.0f)
-              * Matrix_Scale(350.0f,1.0f,350.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, PLANE);
-        DrawVirtualObject("the_plane");
-
-        // CABINE
-        model = Matrix_Translate(0.0f, 0.0f, 0.0f)
-              * Matrix_Scale(0.1f,0.1f,0.1f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, CABINE);
-        DrawVirtualObject("WoodCabin");
-        DrawVirtualObject("Roof");
-
-        // CARRO & VIDROS
-        model = Matrix_Translate(carro.pos[0], 0.0f, carro.pos[2])
-              * Matrix_Scale(0.01f,0.01f,0.01f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, CARRO);
-        // Body
-        glUniform1i(parte_carro_uniform, 1);
-        DrawVirtualObject("Body1");
-        DrawVirtualObject("Steel");
-        DrawVirtualObject("UnderCar");
-        DrawVirtualObject("Hood");
-        DrawVirtualObject("Body");
-        // Vidros
-        glUniform1i(parte_carro_uniform, 2);
-        DrawVirtualObject("Glass");
-        DrawVirtualObject("Plastik");
-
-        DrawVirtualObject("Light1");
-        DrawVirtualObject("Light2");
-        DrawVirtualObject("Light3");
-        // Logo
-        glUniform1i(parte_carro_uniform, 3);
-        DrawVirtualObject("Logo");
-        // Placa
-        glUniform1i(parte_carro_uniform, 4);
-        DrawVirtualObject("Plaque");
-        DrawVirtualObject("Plaque1");
-        // Pisca
-        glUniform1i(parte_carro_uniform, 5);
-        DrawVirtualObject("GuidLight1");
-        DrawVirtualObject("GuidLight");
-        // Faróis
-        glUniform1i(parte_carro_uniform, 6);
-        DrawVirtualObject("Light");
-
-        glUniform1i(parte_carro_uniform, 7);
-        // Pneus
-        glUniform1i(parte_carro_uniform, 8);
-        DrawVirtualObject("Tire");
-        DrawVirtualObject("Tire1");
-        DrawVirtualObject("Tire2");
-        DrawVirtualObject("Tire3");
-
-        // BULLET
-        for(int i=0; i<N_AMMO; i++)
-            if(ammo[i].ativa)
-            {
-                model = Matrix_Translate(ammo[i].pos.x, ammo[i].pos.y, ammo[i].pos.z)
-                      * Matrix_Scale(0.04f,0.04f,0.04f)
-                      * Matrix_Rotate_Y(ammo[i].rotacao)
-                      * Matrix_Rotate_X(3.14/2);
+                // TRONCO
+                model = Matrix_Translate(arvores[i].pos.x,0.0f,arvores[i].pos.z)
+                      * Matrix_Scale(1.0f,1.0f,1.0f)
+                      * Matrix_Rotate_Y(arvores[i].rotacao);
                 glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-                glUniform1i(g_object_id_uniform, BULLET);
-                DrawVirtualObject("45_ACP_Low_Poly");
+                glUniform1i(g_object_id_uniform, ARVORE);
+                glUniform1i(tronco_uniform, true);
+                DrawVirtualObject("bark1");
+                // FOLHAS
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, ARVORE);
+                glUniform1i(tronco_uniform, false);
+                DrawVirtualObject("leaves1");
             }
 
-        // ARVORES
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        for(int i=0; i<NUM_ARVORES; i++)
-        {
-            // TRONCO
-            model = Matrix_Translate(arvores[i].pos.x,0.0f,arvores[i].pos.z)
-                  * Matrix_Scale(1.0f,1.0f,1.0f)
-                  * Matrix_Rotate_Y(arvores[i].rotacao);
+            // SKULL & EYE
+            for(int i=0; i<N_MONSTROS; i++)
+            {
+                model = Matrix_Translate(monstro[i].pos[0], monstro[i].pos[1], monstro[i].pos[2])
+                      * Matrix_Rotate_Y(monstro[i].rotacao)
+                      * Matrix_Scale(0.02f, 0.02f, 0.02f);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, SKULL);
+                DrawVirtualObject("skull");
+                PushMatrix(model);
+                    model = model * Matrix_Translate(-3.2f, 1.4f, 9.0f)
+                                  * Matrix_Rotate_X(3.14/2);
+                    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, EYE);
+                    DrawVirtualObject("eye");
+                    model = model * Matrix_Translate(6.4f, 0.0f, 0.f);
+                    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, EYE);
+                    DrawVirtualObject("eye");
+                PopMatrix(model);
+            }
+
+            // Resetamos a matriz View para que os objetos carregados a partir daqui não se movimentem na tela.
+            glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
+
+            // SMOKE
+            glClear(GL_DEPTH_BUFFER_BIT);
+            if(smoke_active)
+                for(int i=0; i<SMOKE_P_COUNT; i++)
+                {
+                    model = Matrix_Translate(smoke[i].pos[0],smoke[i].pos[1]+recoil,-2.0f)
+                          * Matrix_Scale(smoke[i].scale,smoke[i].scale,1.0f)
+                          * Matrix_Scale(0.1f,0.1f,1.0f)
+                          * Matrix_Rotate_X(3.14/2);
+                    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, SMOKE);
+                    glUniform1i(smoke_life_uniform, smoke[i].life);
+                    DrawVirtualObject("the_screen");
+                }
+
+            // FLASHLIGHT
+            model = Matrix_Translate(lanterna_pos[0]-0.6f, lanterna_pos[1]-0.4f, lanterna_pos[2])
+                * Matrix_Scale(0.01f,0.01f,0.01f)
+                * Matrix_Rotate_X(3.14);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-            glUniform1i(g_object_id_uniform, ARVORE);
-            glUniform1i(tronco_uniform, true);
-            DrawVirtualObject("bark1");
-            // FOLHAS
+            glUniform1i(g_object_id_uniform, FLASHLIGHT);
+            DrawVirtualObject("the_light");
+
+            // REVOLVER
+            model = Matrix_Translate(revolver_pos[0], revolver_pos[1], revolver_pos[2])
+                * Matrix_Scale(0.002f,0.002f,0.002f)
+                * Matrix_Rotate_X(reload_move*2+recoil*2)
+                * Matrix_Rotate_Y(-3.14/2);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-            glUniform1i(g_object_id_uniform, ARVORE);
-            glUniform1i(tronco_uniform, false);
-            DrawVirtualObject("leaves1");
-        }
+            glUniform1i(g_object_id_uniform, REVOLVER);
+            DrawVirtualObject("Handle");
+            DrawVirtualObject("BodyR");
+            DrawVirtualObject("Back_Trigger");
+            DrawVirtualObject("Trigger");
+            DrawVirtualObject("Chamber_Holder");
+            DrawVirtualObject("Chamber");
+            DrawVirtualObject("Barrel");
 
-        // SKULL & EYE
-        for(int i=0; i<N_MONSTROS; i++)
-        {
-            model = Matrix_Translate(monstro[i].pos[0], monstro[i].pos[1], monstro[i].pos[2])
-                  * Matrix_Rotate_Y(monstro[i].rotacao)
-                  * Matrix_Scale(0.02f, 0.02f, 0.02f);
+            // SCREEN
+            glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(orthographic));
+            glDisable(GL_DEPTH_TEST);
+            model = Matrix_Translate(0.0f,0.0f,-2.0f)
+                * Matrix_Scale(0.1f,0.1f,1.0f)
+                * Matrix_Rotate_X(3.14/2);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-            glUniform1i(g_object_id_uniform, SKULL);
-            DrawVirtualObject("skull");
-            PushMatrix(model);
-                model = model * Matrix_Translate(-3.2f, 1.4f, 9.0f)
-                              * Matrix_Rotate_X(3.14/2);
-                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-                glUniform1i(g_object_id_uniform, EYE);
-                DrawVirtualObject("eye");
-                model = model * Matrix_Translate(6.4f, 0.0f, 0.f);
-                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-                glUniform1i(g_object_id_uniform, EYE);
-                DrawVirtualObject("eye");
-            PopMatrix(model);
-        }
+            glUniform1i(g_object_id_uniform, SCREEN);
+            DrawVirtualObject("the_screen");
+            glEnable(GL_DEPTH_TEST);
 
-        // Resetamos a matriz View para que os objetos carregados a partir daqui não se movimentem na tela.
-        glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
+            // Desenhamos uma instrução para o jogador se ele estiver próximo do carro
+            if(jogador_proximo_do_carro)
+                TextRendering_ShowCarTip(window, carro.estado);
 
-        // SMOKE
-        glClear(GL_DEPTH_BUFFER_BIT);
-        if(smoke_active)
-            for(int i=0; i<SMOKE_P_COUNT; i++)
-            {
-                model = Matrix_Translate(smoke[i].pos[0],smoke[i].pos[1]+recoil,-2.0f)
-                      * Matrix_Scale(smoke[i].scale,smoke[i].scale,1.0f)
-                      * Matrix_Scale(0.1f,0.1f,1.0f)
-                      * Matrix_Rotate_X(3.14/2);
-                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-                glUniform1i(g_object_id_uniform, SMOKE);
-                glUniform1i(smoke_life_uniform, smoke[i].life);
-                DrawVirtualObject("the_screen");
-            }
+            // Imprimimos a quantidade de munição que o jogador possui
+            TextRendering_ShowAMMO(window, jogador.ammo);
 
-        // FLASHLIGHT
-        model = Matrix_Translate(lanterna_pos[0]-0.6f, lanterna_pos[1]-0.4f, lanterna_pos[2])
-            * Matrix_Scale(0.01f,0.01f,0.01f)
-            * Matrix_Rotate_X(3.14);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, FLASHLIGHT);
-        DrawVirtualObject("the_light");
+            // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
+            TextRendering_ShowProjection(window);
 
-        // REVOLVER
-        model = Matrix_Translate(revolver_pos[0], revolver_pos[1], revolver_pos[2])
-            * Matrix_Scale(0.002f,0.002f,0.002f)
-            * Matrix_Rotate_X(reload_move*2+recoil*2)
-            * Matrix_Rotate_Y(-3.14/2);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, REVOLVER);
-        DrawVirtualObject("Handle");
-        DrawVirtualObject("BodyR");
-        DrawVirtualObject("Back_Trigger");
-        DrawVirtualObject("Trigger");
-        DrawVirtualObject("Chamber_Holder");
-        DrawVirtualObject("Chamber");
-        DrawVirtualObject("Barrel");
+            // Imprimimos na tela informação sobre o número de quadros renderizados
+            // por segundo (frames per second).
+            TextRendering_ShowFramesPerSecond(window);
 
-        // SCREEN
-        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(orthographic));
-        glDisable(GL_DEPTH_TEST);
-        model = Matrix_Translate(0.0f,0.0f,-2.0f)
-            * Matrix_Scale(0.1f,0.1f,1.0f)
-            * Matrix_Rotate_X(3.14/2);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, SCREEN);
-        DrawVirtualObject("the_screen");
-        glEnable(GL_DEPTH_TEST);
+            // Imprimimos na tela quandos segundos se passaram desde o início
+            TextRendering_ShowSecondsEllapsed(window);
 
-        // Desenhamos uma instrução para o jogador se ele estiver próximo do carro
-        if(jogador_proximo_do_carro)
-            TextRendering_ShowCarTip(window, carro.estado);
+            // O framebuffer onde OpenGL executa as operações de renderização não
+            // é o mesmo que está sendo mostrado para o usuário, caso contrário
+            // seria possível ver artefatos conhecidos como "screen tearing". A
+            // chamada abaixo faz a troca dos buffers, mostrando para o usuário
+            // tudo que foi renderizado pelas funções acima.
+            // Veja o link: https://en.wikipedia.org/w/index.php?title=Multiple_buffering&oldid=793452829#Double_buffering_in_computer_graphics
+            glfwSwapBuffers(window);
 
-        // Imprimimos a quantidade de munição que o jogador possui
-        TextRendering_ShowAMMO(window, jogador.ammo);
-
-        // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
-        TextRendering_ShowProjection(window);
-
-        // Imprimimos na tela informação sobre o número de quadros renderizados
-        // por segundo (frames per second).
-        TextRendering_ShowFramesPerSecond(window);
-
-        // Imprimimos na tela quandos segundos se passaram desde o início
-        TextRendering_ShowSecondsEllapsed(window);
-
-        // O framebuffer onde OpenGL executa as operações de renderização não
-        // é o mesmo que está sendo mostrado para o usuário, caso contrário
-        // seria possível ver artefatos conhecidos como "screen tearing". A
-        // chamada abaixo faz a troca dos buffers, mostrando para o usuário
-        // tudo que foi renderizado pelas funções acima.
-        // Veja o link: https://en.wikipedia.org/w/index.php?title=Multiple_buffering&oldid=793452829#Double_buffering_in_computer_graphics
-        glfwSwapBuffers(window);
-
-        // Verificamos com o sistema operacional se houve alguma interação do
-        // usuário (teclado, mouse, ...). Caso positivo, as funções de callback
-        // definidas anteriormente usando glfwSet*Callback() serão chamadas
-        // pela biblioteca GLFW.
-        glfwPollEvents();
+            // Verificamos com o sistema operacional se houve alguma interação do
+            // usuário (teclado, mouse, ...). Caso positivo, as funções de callback
+            // definidas anteriormente usando glfwSet*Callback() serão chamadas
+            // pela biblioteca GLFW.
+            glfwPollEvents();
         }
 
     }
@@ -1562,6 +1569,22 @@ void ComputeNormals(ObjModel* model)
         model->attrib.normals[3*i + 1] = n.y;
         model->attrib.normals[3*i + 2] = n.z;
     }
+}
+
+//função recebe os quatro pontos de controle P0, P1, P2 e P3 que definem a Curva de Bézier, bem como um valor t que varia de 0 a 1. Aplica
+//a fórmula da Curva de Bézier para calcular o ponto na curva correspondente a esse valor de t
+
+glm::vec4 calculateBezierPoint(const glm::vec4& P1, const glm::vec4& P2, const glm::vec4& P3, const glm::vec4& P4, float t)
+{
+    float u = 1 - t;
+    float uu = u * u;
+    float uuu = uu * u;
+    float tt = t * t;
+    float ttt = tt * t;
+
+    glm::vec4 pointOnCurve = (uuu * P1) + (3 * uu * t * P2) + (3 * u * tt * P3) + (ttt * P4);
+
+    return pointOnCurve;
 }
 
 // Constrói triângulos para futura renderização a partir de um ObjModel.
