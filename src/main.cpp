@@ -232,6 +232,7 @@ void centerMouse(GLFWwindow* window, int screenWidth, int screenHeight); // Cent
 void TextRendering_ShowSecondsEllapsed(GLFWwindow* window); // Mostra quandos segundos se passaram
 void TextRendering_ShowAMMO(GLFWwindow* window, int ammo);  // Mostra a munição do jogador
 void TextRendering_Menu(GLFWwindow* window);
+glm::vec4 calculateBezierPoint(const glm::vec4& P0, const glm::vec4& P1, const glm::vec4& P2, const glm::vec4& P3, float t);
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
@@ -536,6 +537,11 @@ int main(int argc, char* argv[])
         monstro[i].pos = {rand()%100, (rand()%10*0.1+0.1)*1.4f, rand()%100,1.0f};
         monstro[i].orientacao = {0.0f, 0.0f, 0.0f, 0.0f};
     }
+
+    MONSTRO monstro_bezier;
+    monstro_bezier.pos = glm::vec4(5.0f, 5.0f, 1.0f, 1.0f);
+    monstro_bezier.orientacao = {0.0f, 0.0f, 0.0f, 0.0f};
+
 
     CAR carro;
     carro.pos = {6.0f, 0.0f, 0.0f, 1.0f};
@@ -1148,6 +1154,17 @@ int main(int argc, char* argv[])
             monstro[i].pos -= monstro[i].orientacao * speed_base * delta_t * glm::vec4(1.0f,0.0f,1.0f,0.0f);
         }
 
+        glm::vec4 P0(10.0f, 1.0f, 0.0f, 1.0f);           // Ponto inicial
+        glm::vec4 P1(5.0f, 2.0f, 12.0f, 1.0f);           // Primeiro ponto intermediário
+        glm::vec4 P2(0.0f, -1.0f, 20.0f, 1.0f);           // Segundo ponto intermediário
+        glm::vec4 P3(-10.0f, 2.0f, 0.0f, 1.0f);           // Ponto final
+        float t_bezier = fmod(glfwGetTime(), 10.0) / 10.0; // Varia t_bezier de 0 a 1 a cada 10 segundos
+        glm::vec4 pointOnBezierCurve = calculateBezierPoint(P0, P1, P2, P3, t_bezier);
+
+        monstro_bezier.orientacao = normalize(monstro_bezier.pos - jogador.pos);
+        monstro_bezier.rotacao = atan2(monstro_bezier.orientacao.x, monstro_bezier.orientacao.z) + 3.14f;
+        monstro_bezier.pos = glm::vec4(pointOnBezierCurve);
+
 
         // ---------------------------------------------------------- CARRO -------------------------------------------------------------
 
@@ -1333,6 +1350,24 @@ int main(int argc, char* argv[])
             PopMatrix(model);
         }
 
+        model = Matrix_Translate(monstro_bezier.pos[0], monstro_bezier.pos[1], monstro_bezier.pos[2])
+                      * Matrix_Rotate_Y(monstro_bezier.rotacao)
+                      * Matrix_Scale(0.06f, 0.06f, 0.06f);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, SKULL);
+                DrawVirtualObject("skull");
+                PushMatrix(model);
+                    model = model * Matrix_Translate(-3.2f, 1.4f, 9.0f)
+                                  * Matrix_Rotate_X(3.14/2);
+                    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, EYE);
+                    DrawVirtualObject("eye");
+                    model = model * Matrix_Translate(6.4f, 0.0f, 0.f);
+                    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, EYE);
+                    DrawVirtualObject("eye");
+                PopMatrix(model);
+
         // Resetamos a matriz View para que os objetos carregados a partir daqui não se movimentem na tela.
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
 
@@ -1425,6 +1460,21 @@ int main(int argc, char* argv[])
     // Fim do programa
     return 0;
 }
+
+//funcao de bezier
+glm::vec4 calculateBezierPoint(const glm::vec4& P0, const glm::vec4& P1, const glm::vec4& P2, const glm::vec4& P3, float t)
+{
+    float u = 1 - t;
+    float tt = t * t;
+    float uu = u * u;
+    float uuu = uu * u;
+    float ttt = tt * t;
+
+    glm::vec4 pointOnCurve = uuu * P0 + 3 * uu * t * P1 + 3 * u * tt * P2 + ttt * P3;
+
+    return pointOnCurve;
+}
+
 
 // Função que carrega uma imagem para ser utilizada como textura
 void LoadTextureImage(const char* filename)
