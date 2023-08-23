@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1692753271 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\collisions.cpp
+1692816447 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\collisions.cpp
 	<glm/mat4x4.hpp>
 	<glm/vec4.hpp>
 	<glm/gtc/type_ptr.hpp>
@@ -923,7 +923,7 @@
 	<array>
 	"mapbox/earcut.hpp"
 
-1692792878 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\main.cpp
+1692814977 source:c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\main.cpp
 	<cmath>
 	<cstdio>
 	<cstdlib>
@@ -956,7 +956,7 @@
 	<glm/vec4.hpp>
 	<glm/gtc/matrix_transform.hpp>
 
-1692753271 c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\collisions.cpp
+1692815471 c:\henrique\2023.1\programas\6. jogo fcg\fcg-game\src\collisions.cpp
 	<glm/mat4x4.hpp>
 	<glm/vec4.hpp>
 	<glm/gtc/type_ptr.hpp>

@@ -52,6 +52,8 @@
 // Incluimos o arquivo de testes de colisões
 #include "collisions.cpp"
 
+#define PI 3.14159265359f
+
 // Estrutura que representa um modelo geométrico carregado a partir de um
 // arquivo ".obj". Veja https://en.wikipedia.org/wiki/Wavefront_.obj_file .
 struct ObjModel
@@ -116,6 +118,10 @@ typedef struct ammo
     glm::vec4 pos, orientacao;
     float rotacao, timer;
     bool ativa;
+    Esfera bounding_sphere;
+
+    ammo() : pos(glm::vec4(0.0f)), rotacao(rotacao), timer(timer), ativa(ativa), bounding_sphere(glm::vec4(0.0f), 0.05f) {}
+
 } AMMO;
 
 typedef struct jogador
@@ -125,8 +131,9 @@ typedef struct jogador
     int vidas;
     int ammo;
     AABB aabb;
+    Esfera bounding_sphere;
 
-    jogador() : pos(glm::vec4(0.0f)), camera(glm::vec4(0.0f)), vidas(0), ammo(0), aabb(glm::vec3(0.0f), glm::vec3(0.0f)) {}
+    jogador() : pos(glm::vec4(0.0f)), camera(glm::vec4(0.0f)), vidas(0), ammo(0), aabb(glm::vec3(0.0f), glm::vec3(0.0f)), bounding_sphere(bounding_sphere) {}
 
 } JOGADOR;
 
@@ -135,7 +142,10 @@ typedef struct monstro
     // Variáveis que definem a posição dos monstros
     glm::vec4 pos, orientacao;
     float rotacao;
-    int vidas;
+    bool vivo;
+    Esfera bounding_sphere;
+
+    monstro() : pos(glm::vec4(0.0f)), orientacao(glm::vec4(0.0f)), rotacao(rotacao), vivo(vivo), bounding_sphere(glm::vec4(0.0f), 0.05f) {}
 
 } MONSTRO;
 
@@ -144,6 +154,10 @@ typedef struct carro
     // Variáveis que definem o carro que o jogador precisa consertar
     glm::vec4 pos;
     float estado;
+    AABB aabb;
+
+    carro() : pos(glm::vec4(0.0f)), estado(estado), aabb(glm::vec3(0.0f), glm::vec3(0.0f)) {}
+
 } CAR;
 
 typedef struct arvore
@@ -151,6 +165,10 @@ typedef struct arvore
     // Variáveis que definem a posição das arvores
     glm::vec4 pos;
     float rotacao;
+    AABB aabb;
+
+    arvore() : pos(glm::vec4(0.0f)), rotacao(rotacao), aabb(glm::vec3(0.0f), glm::vec3(0.0f)) {}
+
 } ARVORE;
 
 typedef struct Particle {
@@ -159,8 +177,8 @@ typedef struct Particle {
     int     life;
     float scale;
 
-    Particle()
-      : pos(0.0f), vel(0.0f), color(1.0f), life(0.0f), scale(1.0) {}
+    Particle() : pos(0.0f), vel(0.0f), color(1.0f), life(0.0f), scale(1.0) {}
+
 } PARTICLE;
 
 // Declaração de funções utilizadas para pilha de matrizes de modelagem.
@@ -274,8 +292,8 @@ bool tecla_E_pressionada = false;     // Conserta o carro
 bool tecla_SPACE_pressionada = false; // Pulo
 bool tecla_SHIFT_pressionada = false; // Corrida
 
-float g_Theta = 3.141592f / 4;
-float g_Phi = 3.141592f / 6;
+float g_Theta = PI / 4;
+float g_Phi = PI / 6;
 
 double g_LastCursorPosX, g_LastCursorPosY;
 // Usada para verificar se o mouse está centralizado.
@@ -508,10 +526,8 @@ int main(int argc, char* argv[])
     jogador.vidas = 3;
 
     // Definimos o plano do chão para os testes de colisão
+               // Seu vetor normal          // Sua posição
     Plano chao(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-
-    // Definimos uma AABB teste
-    AABB teste(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.5f, 5.0f, 0.5f));
 
     // Definimos a matriz monstro que irá guardar informações dos monstros
     MONSTRO monstro[N_MONSTROS];
@@ -540,10 +556,33 @@ int main(int argc, char* argv[])
     ARVORE arvores[NUM_ARVORES];
     for(int i=0; i<NUM_ARVORES; i++)
     {
-        float angulo=i*(2*3.14/NUM_ARVORES);
+        float angulo=i*(2*PI/NUM_ARVORES);
         arvores[i].pos = glm::vec4(cos(angulo)*ARVORES_DIST, 0.0f, sin(angulo)*ARVORES_DIST, 1.0f);
-        arvores[i].rotacao = rand()%6*(2*3.14/6);
+        arvores[i].rotacao = rand()%6*(2*PI/6);
     }
+
+    // Cenário AABBs
+    std::vector<AABB> cenario;
+
+    // Carro
+    cenario.push_back(AABB(glm::vec3(5.0f, 0.0f, -2.5f), glm::vec3(7.0f, 1.0f, 2.5f)));
+    // Casa chão
+    cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.3f), glm::vec3(3.3f, 0.65f, 3.3f)));
+    // Casa parede sul
+    cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.3f), glm::vec3(3.0f, 5.0f, -2.95f)));
+    // Casa parede leste
+    cenario.push_back(AABB(glm::vec3(-2.9f, 0.0f, -3.0f), glm::vec3(-2.0f, 4.0f, 3.0f)));
+    /*
+    // Casa parede oeste
+    cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.0f), glm::vec3(3.0f, 0.65f, 3.0f)));
+
+    // Casa parede norte/esquerda da porta
+    cenario[NUM_ARVORES+5] =
+    // Casa parede norte/direita da porta
+    cenario[NUM_ARVORES+6] =
+    // Casa escadaria
+    cenario[NUM_ARVORES+7] =
+    */
 
     // Definimos variáveis de partícula
     #define SMOKE_P_COUNT 6
@@ -609,31 +648,16 @@ int main(int argc, char* argv[])
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para definir o sistema de coordenadas da câmera.
         glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
+        glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
 
-        // Agora computamos a matriz de Projeção.
-        glm::mat4 projection;
-
+        // Definimos a matriz de projeção como perspectiva
+        float field_of_view = PI / 3.0f;
         float nearplane = -0.1f;  // Posição do "near plane"
         float farplane  = -30.0f; // Posição do "far plane"
-
-        // Projeção Perspectiva.
-        float field_of_view = 3.141592 / 3.0f;
         glm::mat4 perspective = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
-
-        // Projeção Ortográfica.
-        float t = 1.5f*g_CameraDistance/2.5f;
-        float b = -t;
-        //float r = t*g_ScreenRatio;
-        float l = -r;
-        glm::mat4 orthographic = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
+        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(perspective));
 
         glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
-
-        // Enviamos as matrizes "view" e "projection" para a placa de vídeo
-        // (GPU). Veja o arquivo "shader_vertex.glsl", onde estas são
-        // efetivamente aplicadas em todos os pontos.
-        glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
-        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(perspective));
 
         #define SPHERE 0
         #define BULLET 1
@@ -732,12 +756,10 @@ int main(int argc, char* argv[])
         // Resetamos a matriz View para que os objetos carregados a partir daqui não se movimentem na tela.
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
 
-        // Imprimimos a quantidade de munição que o jogador possui
+        //texto do menu
         TextRendering_Menu(window);
         glfwSwapBuffers(window);
 
-
-        //texto do menu
         TextRendering_ShowSecondsEllapsed(window);
 
         // Verificamos com o sistema operacional se houve alguma interação do
@@ -747,10 +769,12 @@ int main(int argc, char* argv[])
         glfwPollEvents();
 
 
+        // =========================================== GAMEPLAY ===========================================
         while (sair_menu && !glfwWindowShouldClose(window)){
 
         glfwSetWindowMonitor(window, _fullscreen ? glfwGetPrimaryMonitor() : NULL, 0, 0, 4000, 4000, GLFW_DONT_CARE);
 
+        // Serve para mudar a iluminação global durante a gameplay
         glUniform1i(tela_de_menu_uniform, false);
         // Variáveis de tempo
         float current_time = (float)glfwGetTime();
@@ -796,8 +820,9 @@ int main(int argc, char* argv[])
 
         // --------------------------------------------------------  JOGADOR  -----------------------------------------------------------
 
-        // Definimos a bounding box do jogador
-        jogador.aabb = AABB(glm::vec3(jogador.pos[0]-0.35f, jogador.pos[1], jogador.pos[2]-0.35f), glm::vec3(jogador.pos[0]+0.35f,jogador.pos[1]+1.4f,jogador.pos[2]+0.35f));
+        // Definimos a bounding box e a bounding sphere do jogador
+        jogador.aabb = AABB(glm::vec3(jogador.pos[0]-0.34f, jogador.pos[1], jogador.pos[2]-0.34f), glm::vec3(jogador.pos[0]+0.34f,jogador.pos[1]+1.4f,jogador.pos[2]+0.34f));
+        jogador.bounding_sphere = Esfera(glm::vec4(jogador.pos[0],jogador.pos[1]+0.1f,jogador.pos[2], 1.0f), 0.35f);
 
         // Faz o jogador correr quando pressiona SHIFT e não está recarregando
         speed = speed_base;
@@ -807,38 +832,110 @@ int main(int argc, char* argv[])
         }
 
 
-        #define S 1
-        // Realiza a movimentação do jogador, atualizando sua posição anterior e atual
+        // Realiza a movimentação do jogador, testando se há colisões
+        glm::vec4 movimentacao = glm::vec4(1.0f,0.0f,1.0f,0.0f); // Valor de movimentação padrão, quando não há obstáculos
         if (tecla_W_pressionada)
         {
-            float sentido = 1;
-            if (jogador.aabb.EstaColidindoComAABB(teste))
-                sentido = -S;
-            jogador.pos += - vw * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            for (int i = 0; i < cenario.size(); i++)
+                if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
+                {
+                    // Angulo que o ponto da bounding sphere que está tocando na AABB faz com a movimentação prevista pelo jogador
+                    float t = jogador.bounding_sphere.VaiColidirComAABB(cenario[i], jogador.bounding_sphere.center - vw * (speed * delta_t) * movimentacao);
+                    // Testa haverá colisão com a bounding sphere do jogador
+                    if (t!=-1)
+                    {
+                        // Ajusta a movimentação do jogador para ser tangente ao obstáculo
+                        if (t >= PI/2)
+                        {
+                            movimentacao[0] *= cos(t);
+                            movimentacao[2] *= sin(t);
+                        }
+                        else
+                        {
+                            movimentacao[0] *= sin(t);
+                            movimentacao[2] *= cos(t);
+                        }
+                    }
+                }
+            jogador.pos += - vw * (speed * delta_t) * movimentacao;
         }
 
         if (tecla_S_pressionada)
         {
-            float sentido = 1;
-            if (jogador.aabb.EstaColidindoComAABB(teste))
-                sentido = -S;
-            jogador.pos += vw * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            for (int i = 0; i < cenario.size(); i++)
+                if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
+                {
+                    // Angulo que o ponto da bounding sphere que está tocando na AABB faz com a movimentação prevista pelo jogador
+                    float t = jogador.bounding_sphere.VaiColidirComAABB(cenario[i], jogador.bounding_sphere.center + vw * (speed * delta_t) * movimentacao);
+                    // Testa haverá colisão com a bounding sphere do jogador
+                    if (t!=-1)
+                    {
+                        // Ajusta a movimentação do jogador para ser tangente ao obstáculo
+                        if (t > PI/2)
+                        {
+                            movimentacao[0] *= cos(t);
+                            movimentacao[2] *= sin(t);
+                        }
+                        else
+                        {
+                            movimentacao[0] *= sin(t);
+                            movimentacao[2] *= cos(t);
+                        }
+                    }
+                }
+            jogador.pos += vw * (speed * delta_t) * movimentacao;
         }
 
         if (tecla_D_pressionada)
         {
-            float sentido = 1;
-            if (jogador.aabb.EstaColidindoComAABB(teste))
-                sentido = -S;
-            jogador.pos += vu * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            for (int i = 0; i < cenario.size(); i++)
+                if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
+                {
+                    // Angulo que o ponto da bounding sphere que está tocando na AABB faz com a movimentação prevista pelo jogador
+                    float t = jogador.bounding_sphere.VaiColidirComAABB(cenario[i], jogador.bounding_sphere.center + vu * (speed * delta_t) * movimentacao);
+                    // Testa haverá colisão com a bounding sphere do jogador
+                    if (t!=-1)
+                    {
+                        // Ajusta a movimentação do jogador para ser tangente ao obstáculo
+                        if (t >= PI/2)
+                        {
+                            movimentacao[0] *= cos(t);
+                            movimentacao[2] *= sin(t);
+                        }
+                        else
+                        {
+                            movimentacao[0] *= sin(t);
+                            movimentacao[2] *= cos(t);
+                        }
+                    }
+                }
+            jogador.pos += vu * (speed * delta_t) * movimentacao;
         }
 
         if (tecla_A_pressionada)
         {
-            float sentido = 1;
-            if (jogador.aabb.EstaColidindoComAABB(teste))
-                sentido = -S;
-            jogador.pos += -vu * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+            for (int i = 0; i < cenario.size(); i++)
+                if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
+                {
+                    // Angulo que o ponto da bounding sphere que está tocando na AABB faz com a movimentação prevista pelo jogador
+                    float t = jogador.bounding_sphere.VaiColidirComAABB(cenario[i], jogador.bounding_sphere.center - vu * (speed * delta_t) * movimentacao);
+                    // Testa haverá colisão com a bounding sphere do jogador
+                    if (t!=-1)
+                    {
+                        // Ajusta a movimentação do jogador para ser tangente ao obstáculo
+                        if (t >= PI/2)
+                        {
+                            movimentacao[0] *= cos(t);
+                            movimentacao[2] *= sin(t);
+                        }
+                        else
+                        {
+                            movimentacao[0] *= sin(t);
+                            movimentacao[2] *= cos(t);
+                        }
+                    }
+                }
+            jogador.pos += -vu * (speed * delta_t) * movimentacao;
         }
 
         // Prende o jogador em um 'loop' dentro da área de jogo, caso ele se afaste demais da cabine
@@ -869,7 +966,7 @@ int main(int argc, char* argv[])
                     shake_cima = true;
             }
         }
-        else if (jogador.camera[1] < jogador.pos[1]+1.4f && jogador.pos[1] <= 0.0f)
+        else if (jogador.camera[1] < jogador.pos[1]+1.4f && Yspeed == 0.0f)
         {
             jogador.camera[1] += 0.1*(speed * delta_t);
             shake_cima = false;
@@ -877,19 +974,28 @@ int main(int argc, char* argv[])
         else
             jogador.camera[1] = jogador.pos[1]+1.4f;
 
+        glm::vec4 ipis = glm::vec4(0.0f,0.0f,0.0f,1.0f);
         // Gravidade (reduz a velocidade em Y gradualmente com o tempo até chegar no chão
-        if (jogador.aabb.EstaColidindoComPlano(chao)==false)
-        {
-            Yspeed -= gravity * delta_t;
-        }
-        else
+        if (jogador.aabb.EstaColidindoComPlano(chao))
             Yspeed = 0.0f;
+        else for(int i=0; i<cenario.size(); i++)
+            if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
+                    Yspeed = 0.0f;
+                else
+                    Yspeed -= gravity * delta_t;
+
 
         // Pulo (faz com que a velocidade em Y seja a velocidade base)
-        if (tecla_SPACE_pressionada && jogador.aabb.EstaColidindoComPlano(chao))
-        {
-            Yspeed = speed_base;
-        }
+        if (tecla_SPACE_pressionada)
+            if(jogador.aabb.EstaColidindoComPlano(chao))
+                Yspeed = speed_base;
+            else
+                for(int i=0; i<cenario.size(); i++)
+                    if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
+                        Yspeed = speed_base;
+
+        // jogador.bounding_sphere.VaiColidirComAABB(cenario[i], (jogador.bounding_sphere.center-ipis))==-1)
+
         // Velocidade no eixo Y
         jogador.pos[1] += Yspeed*delta_t;
 
@@ -1007,7 +1113,7 @@ int main(int argc, char* argv[])
                     smoke[i].pos[0] = revolver_pos[0]+0.1f;
                     smoke[i].pos[1] = revolver_pos[1]+0.2f;
                     // 8 possíveis direções estão entre [0, 2*PI]
-                    float direcao = (rand()%8)*(2*3.14/8);
+                    float direcao = (rand()%8)*(2*PI/8);
                     smoke[i].vel = {cos(direcao),sin(direcao)};
                     smoke[i].scale = 1.0f;
                 }
@@ -1037,7 +1143,7 @@ int main(int argc, char* argv[])
             // Faz o monstro estar sempre olhando para o jogador
             monstro[i].orientacao = normalize(monstro[i].pos - jogador.pos);
             // Usado para a matriz de rotação do monstro
-            monstro[i].rotacao = atan2(monstro[i].orientacao.x, monstro[i].orientacao.z) + 3.14f;
+            monstro[i].rotacao = atan2(monstro[i].orientacao.x, monstro[i].orientacao.z) + PI;
             // Move o monstro em direção ao jogador
             monstro[i].pos -= monstro[i].orientacao * speed_base * delta_t * glm::vec4(1.0f,0.0f,1.0f,0.0f);
         }
@@ -1068,7 +1174,7 @@ int main(int argc, char* argv[])
 
         // Projeção Perspectiva.
         // Para definição do field of view (FOV), veja slides 205-215 do documento Aula_09_Projecoes.pdf.
-        float field_of_view = 3.141592 / 3.0f;
+        float field_of_view = PI / 3.0f;
         glm::mat4 perspective = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
 
         // Projeção Ortográfica.
@@ -1179,7 +1285,7 @@ int main(int argc, char* argv[])
                 model = Matrix_Translate(ammo[i].pos.x, ammo[i].pos.y, ammo[i].pos.z)
                       * Matrix_Scale(0.04f,0.04f,0.04f)
                       * Matrix_Rotate_Y(ammo[i].rotacao)
-                      * Matrix_Rotate_X(3.14/2);
+                      * Matrix_Rotate_X(PI/2);
                 glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
                 glUniform1i(g_object_id_uniform, BULLET);
                 DrawVirtualObject("45_ACP_Low_Poly");
@@ -1216,7 +1322,7 @@ int main(int argc, char* argv[])
             DrawVirtualObject("skull");
             PushMatrix(model);
                 model = model * Matrix_Translate(-3.2f, 1.4f, 9.0f)
-                              * Matrix_Rotate_X(3.14/2);
+                              * Matrix_Rotate_X(PI/2);
                 glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
                 glUniform1i(g_object_id_uniform, EYE);
                 DrawVirtualObject("eye");
@@ -1238,7 +1344,7 @@ int main(int argc, char* argv[])
                 model = Matrix_Translate(smoke[i].pos[0],smoke[i].pos[1]+recoil,-2.0f)
                       * Matrix_Scale(smoke[i].scale,smoke[i].scale,1.0f)
                       * Matrix_Scale(0.1f,0.1f,1.0f)
-                      * Matrix_Rotate_X(3.14/2);
+                      * Matrix_Rotate_X(PI/2);
                 glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
                 glUniform1i(g_object_id_uniform, SMOKE);
                 glUniform1i(smoke_life_uniform, smoke[i].life);
@@ -1248,7 +1354,7 @@ int main(int argc, char* argv[])
         // FLASHLIGHT
         model = Matrix_Translate(lanterna_pos[0]-0.6f, lanterna_pos[1]-0.4f, lanterna_pos[2])
             * Matrix_Scale(0.01f,0.01f,0.01f)
-            * Matrix_Rotate_X(3.14);
+            * Matrix_Rotate_X(PI);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, FLASHLIGHT);
         DrawVirtualObject("the_light");
@@ -1257,7 +1363,7 @@ int main(int argc, char* argv[])
         model = Matrix_Translate(revolver_pos[0], revolver_pos[1], revolver_pos[2])
             * Matrix_Scale(0.002f,0.002f,0.002f)
             * Matrix_Rotate_X(reload_move*2+recoil*2)
-            * Matrix_Rotate_Y(-3.14/2);
+            * Matrix_Rotate_Y(-PI/2);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, REVOLVER);
         DrawVirtualObject("Handle");
@@ -1273,7 +1379,7 @@ int main(int argc, char* argv[])
         glDisable(GL_DEPTH_TEST);
         model = Matrix_Translate(0.0f,0.0f,-2.0f)
             * Matrix_Scale(0.1f,0.1f,1.0f)
-            * Matrix_Rotate_X(3.14/2);
+            * Matrix_Rotate_X(PI/2);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, SCREEN);
         DrawVirtualObject("the_screen");
@@ -1921,7 +2027,7 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
     g_CameraPhi   -= 0.003f*dy;
 
     // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
-    float phimax = 3.141592f/2;
+    float phimax = PI/2;
     float phimin = -phimax;
 
     if (g_CameraPhi > phimax)

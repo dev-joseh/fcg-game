@@ -9,21 +9,12 @@
 #include <cstdio>
 #include <cstdlib>
 
-
 struct Plano {
     glm::vec3 normal; // Vetor normal ao plano
     glm::vec3 point;  // Ponto pertencente ao plano
 
     Plano(const glm::vec3& normal, const glm::vec3& point)
         : normal(normal), point(point) {}
-};
-
-struct Esfera {
-    glm::vec3 center; // Centro da esfera
-    float radius;     // Raio da esfera
-
-    Esfera(const glm::vec3& center, float radius)
-        : center(center), radius(radius) {}
 };
 
 // Define a estrutura de um objeto com Axis Aligned Bounding Box
@@ -57,25 +48,48 @@ struct AABB {
         float diagonalLength = glm::length(maximo - minimo);
         return (std::abs(distance) <= diagonalLength / 2.0f);
     }
+};
 
-    // Função para verificar a colisão com uma esfera
-    bool EstaColidindoComEsfera(const Esfera& esfera) const {
+struct Esfera {
+    glm::vec4 center; // Centro da esfera
+    float radius;     // Raio da esfera
+
+    Esfera(const glm::vec4& center, float radius)
+        : center(center), radius(radius) {}
+
+    float VaiColidirComAABB(const AABB& other, glm::vec4 posicao_futura){
+        // Função para verificar a colisão com uma esfera
+        float angulo;
+
         // Encontrar o ponto mais próximo na AABB ao centro da esfera
-        glm::vec3 closestPoint;
+        glm::vec4 closestPoint;
 
-        for (int i = 0; i < 3; ++i) {
-            if (esfera.center[i] < minimo[i]) {
-                closestPoint[i] = minimo[i];
-            } else if (esfera.center[i] > maximo[i]) {
-                closestPoint[i] = maximo[i];
-            } else {
-                closestPoint[i] = esfera.center[i];
-            }
+        for (int i = 0; i < 3; i++)
+        {
+            if (Esfera::center[i] < other.minimo[i])
+                closestPoint[i] = other.minimo[i];
+            else if (Esfera::center[i] > other.maximo[i])
+                closestPoint[i] = other.maximo[i];
+            else
+                closestPoint[i] = Esfera::center[i];
         }
+        closestPoint[3] = 1.0f;
 
         // Verificar se a distância entre o ponto mais próximo e o centro da esfera é menor ou igual ao raio
-        float distance = glm::distance(closestPoint, esfera.center);
+        float distance = glm::distance(closestPoint, Esfera::center);
 
-        return (distance <= esfera.radius);
+        if (distance <= Esfera::radius)
+        {
+            glm::vec4 direction = posicao_futura - Esfera::center;
+            glm::vec4 vetor = closestPoint - Esfera::center;
+            angulo = acos(glm::dot(direction, vetor));
+        }
+
+        if(distance > radius)
+            angulo = -1.0f;
+
+        return angulo; // Retorna -1 se não houver colisão
     }
+
+
 };
