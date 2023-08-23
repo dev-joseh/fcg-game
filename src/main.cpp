@@ -527,6 +527,10 @@ int main(int argc, char* argv[])
         monstro[i].orientacao = {0.0f, 0.0f, 0.0f, 0.0f};
     }
 
+    MONSTRO monstro_bezier;
+    monstro_bezier.pos = glm::vec4(5.0f, 5.0f, 1.0f, 1.0f);
+    monstro_bezier.orientacao = {0.0f, 0.0f, 0.0f, 0.0f};
+
     CAR carro;
     carro.pos = {6.0f, 0.0f, 0.0f, 1.0f};
     carro.estado = 0.0f;
@@ -1050,6 +1054,17 @@ int main(int argc, char* argv[])
                 monstro[i].pos -= monstro[i].orientacao * speed_base * delta_t * glm::vec4(1.0f,0.0f,1.0f,0.0f);
             }
 
+            glm::vec4 P0(10.0f, 1.0f, 0.0f, 1.0f);           // Ponto inicial
+            glm::vec4 P1(5.0f, 2.0f, 12.0f, 1.0f);           // Primeiro ponto intermediário
+            glm::vec4 P2(0.0f, -1.0f, 20.0f, 1.0f);           // Segundo ponto intermediário
+            glm::vec4 P3(-10.0f, 2.0f, 0.0f, 1.0f);           // Ponto final
+            float t_bezier = fmod(glfwGetTime(), 10.0) / 10.0; // Varia t_bezier de 0 a 1 a cada 10 segundos
+            glm::vec4 pointOnBezierCurve = calculateBezierPoint(P0, P1, P2, P3, t_bezier);
+
+            monstro_bezier.orientacao = normalize(monstro_bezier.pos - jogador.pos);
+            monstro_bezier.rotacao = atan2(monstro_bezier.orientacao.x, monstro_bezier.orientacao.z) + 3.14f;
+            monstro_bezier.pos = glm::vec4(pointOnBezierCurve);
+
             // ---------------------------------------------------------- CARRO -------------------------------------------------------------
 
             // Se o jogador estiver próximo do carro, ele terá a opção de consertá-lo pressionando E.
@@ -1233,6 +1248,26 @@ int main(int argc, char* argv[])
                     DrawVirtualObject("eye");
                 PopMatrix(model);
             }
+
+            // monstro que usa curva de bezier
+            model = Matrix_Translate(monstro_bezier.pos[0], monstro_bezier.pos[1], monstro_bezier.pos[2])
+                      * Matrix_Rotate_Y(monstro_bezier.rotacao)
+                      * Matrix_Scale(0.06f, 0.06f, 0.06f);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, SKULL);
+                DrawVirtualObject("skull");
+                PushMatrix(model);
+                    model = model * Matrix_Translate(-3.2f, 1.4f, 9.0f)
+                                  * Matrix_Rotate_X(3.14/2);
+                    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, EYE);
+                    DrawVirtualObject("eye");
+                    model = model * Matrix_Translate(6.4f, 0.0f, 0.f);
+                    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, EYE);
+                    DrawVirtualObject("eye");
+                PopMatrix(model);
+
 
             // Resetamos a matriz View para que os objetos carregados a partir daqui não se movimentem na tela.
             glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
