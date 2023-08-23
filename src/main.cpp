@@ -49,6 +49,9 @@
 #include "utils.h"
 #include "matrices.h"
 
+// Incluimos o arquivo de testes de colisões
+#include "collisions.cpp"
+
 // Estrutura que representa um modelo geométrico carregado a partir de um
 // arquivo ".obj". Veja https://en.wikipedia.org/wiki/Wavefront_.obj_file .
 struct ObjModel
@@ -117,10 +120,14 @@ typedef struct ammo
 
 typedef struct jogador
 {
-    // Variáveis que definem a posição do jogador
+    // Variáveis que definem o jogador
     glm::vec4 pos, camera;
     int vidas;
     int ammo;
+    AABB aabb;
+
+    jogador() : pos(glm::vec4(0.0f)), camera(glm::vec4(0.0f)), vidas(0), ammo(0), aabb(glm::vec3(0.0f), glm::vec3(0.0f)) {}
+
 } JOGADOR;
 
 typedef struct monstro
@@ -129,6 +136,7 @@ typedef struct monstro
     glm::vec4 pos, orientacao;
     float rotacao;
     int vidas;
+
 } MONSTRO;
 
 typedef struct carro
@@ -491,7 +499,17 @@ int main(int argc, char* argv[])
     # define SPEED_BASE     3.0f     // Velocidade base para algumas variáveis
 
     // Definimos a posição inicial do jogador, da câmera e a quantidade de vidas e munições
-    JOGADOR jogador = {{0.0f, 2.0f, 0.0f, 1.0f},{0.0f, 2.0f, 0.0f, 1.0f}, 3, 6};
+    JOGADOR jogador;
+    jogador.pos = glm::vec4(-2.0f, 1.0f, 0.0f, 1.0f);
+    jogador.camera = glm::vec4(0.0f, 2.4f, 0.0f, 1.0f);
+    jogador.ammo = 6;
+    jogador.vidas = 3;
+
+    // Definimos o plano do chão para os testes de colisão
+    Plano chao(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+
+    // Definimos uma AABB teste
+    AABB teste(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.5f, 5.0f, 0.5f));
 
     // Definimos a matriz monstro que irá guardar informações dos monstros
     MONSTRO monstro[N_MONSTROS];
@@ -587,6 +605,10 @@ int main(int argc, char* argv[])
         // A câmera pode sofrer efeitos como shaking durante o dano ou na caminhada, mas isso não irá mudar a posição do jogador.
 
         // --------------------------------------------------------  JOGADOR  -----------------------------------------------------------
+
+        // Definimos a bounding box do jogador
+        jogador.aabb = AABB(glm::vec3(jogador.pos[0]-0.35f, jogador.pos[1], jogador.pos[2]-0.35f), glm::vec3(jogador.pos[0]+0.35f,jogador.pos[1]+1.4f,jogador.pos[2]+0.35f));
+
         // Faz o jogador correr quando pressiona SHIFT e não está recarregando
         speed = speed_base;
         if (tecla_SHIFT_pressionada&&reload_active==false)
@@ -594,18 +616,40 @@ int main(int argc, char* argv[])
             speed = speed_base*2;
         }
 
-         // Realiza a movimentação do jogador, atualizando sua posição anterior e atual
+
+        #define S 1
+        // Realiza a movimentação do jogador, atualizando sua posição anterior e atual
         if (tecla_W_pressionada)
-            jogador.pos += -vw * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f)); // Fixa o jogador no chão
+        {
+            float sentido = 1;
+            if (jogador.aabb.EstaColidindoComAABB(teste))
+                sentido = -S;
+            jogador.pos += - vw * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+        }
 
         if (tecla_S_pressionada)
-            jogador.pos += vw * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+        {
+            float sentido = 1;
+            if (jogador.aabb.EstaColidindoComAABB(teste))
+                sentido = -S;
+            jogador.pos += vw * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+        }
 
         if (tecla_D_pressionada)
-            jogador.pos += vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+        {
+            float sentido = 1;
+            if (jogador.aabb.EstaColidindoComAABB(teste))
+                sentido = -S;
+            jogador.pos += vu * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+        }
 
         if (tecla_A_pressionada)
-            jogador.pos += -vu * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+        {
+            float sentido = 1;
+            if (jogador.aabb.EstaColidindoComAABB(teste))
+                sentido = -S;
+            jogador.pos += -vu * sentido * (speed * delta_t) * (glm::vec4(1.0f,0.0f,1.0f,0.0f));
+        }
 
         // Prende o jogador em um 'loop' dentro da área de jogo, caso ele se afaste demais da cabine
         if ( sqrt(pow(jogador.pos[0],2)+pow(jogador.pos[2],2)) >= ARVORES_DIST + 27.0f)
@@ -615,7 +659,7 @@ int main(int argc, char* argv[])
         }
 
         // "Balanço" enquanto o jogador anda no chão.
-        if((tecla_A_pressionada||tecla_D_pressionada||tecla_S_pressionada||tecla_W_pressionada) && jogador.pos[1] <= 0.0f)
+        if((tecla_A_pressionada||tecla_D_pressionada||tecla_S_pressionada||tecla_W_pressionada) && Yspeed == 0.0f)
             jogador_andando = true;
         else
             jogador_andando = false;
@@ -644,7 +688,7 @@ int main(int argc, char* argv[])
             jogador.camera[1] = jogador.pos[1]+1.4f;
 
         // Gravidade (reduz a velocidade em Y gradualmente com o tempo até chegar no chão
-        if (jogador.pos[1] > 0.0f)
+        if (jogador.aabb.EstaColidindoComPlano(chao)==false)
         {
             Yspeed -= gravity * delta_t;
         }
@@ -652,7 +696,7 @@ int main(int argc, char* argv[])
             Yspeed = 0.0f;
 
         // Pulo (faz com que a velocidade em Y seja a velocidade base)
-        if (tecla_SPACE_pressionada && jogador.pos[1] <= 0.0f)
+        if (tecla_SPACE_pressionada && jogador.aabb.EstaColidindoComPlano(chao))
         {
             Yspeed = speed_base;
         }
