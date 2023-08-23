@@ -213,6 +213,7 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 void centerMouse(GLFWwindow* window, int screenWidth, int screenHeight); // Centraliza o mouse na tela
 void TextRendering_ShowSecondsEllapsed(GLFWwindow* window); // Mostra quandos segundos se passaram
 void TextRendering_ShowAMMO(GLFWwindow* window, int ammo);  // Mostra a munição do jogador
+void TextRendering_Menu(GLFWwindow* window);
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
@@ -558,10 +559,215 @@ int main(int argc, char* argv[])
     float Yspeed, gravity = 3.0f;         // Aceleração da queda
     float prev_time = (float)glfwGetTime();
 
+
+    bool sair_menu = false;
+
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
+
+        if (tecla_SPACE_pressionada){       // Pressionar espaço p sair do menu e começar o jogo
+            sair_menu = true;
+        }
         glfwSetWindowMonitor(window, _fullscreen ? glfwGetPrimaryMonitor() : NULL, 0, 0, 4000, 4000, GLFW_DONT_CARE);
+        // Variáveis de tempo
+        float current_time = (float)glfwGetTime();
+        delta_t = current_time - prev_time;
+        prev_time = current_time;
+
+        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+
+        // "Pintamos" todos os pixels do framebuffer com a cor definida acima,
+        // e também resetamos todos os pixels do Z-buffer (depth buffer).
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Pedimos para a GPU utilizar o programa de GPU criado acima (contendo
+        // os shaders de vértice e fragmentos).
+        glUseProgram(g_GpuProgramID);
+
+        // Computamos a posição da câmera utilizando coordenadas esféricas.  As
+        // variáveis g_CameraDistance, g_CameraPhi, e g_CameraTheta são
+        // controladas pelo mouse do usuário. Veja as funções CursorPosCallback()
+        // e ScrollCallback().
+
+        //posição da camera look-at
+
+
+        float r = g_CameraDistance;
+        float y = r*sin(g_CameraPhi);
+        float z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
+        float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
+
+        // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
+        // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
+        glm::vec4 camera_position_c  = glm::vec4(4*x,4*y,4*z,1.0f); // Ponto "c", centro da câmera
+        glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+        glm::vec4 camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
+        glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+
+
+
+        // A câmera pode sofrer efeitos como shaking durante o dano ou na caminhada, mas isso não irá mudar a posição do jogador.
+
+        // Computamos a matriz "View" utilizando os parâmetros da câmera para definir o sistema de coordenadas da câmera.
+        glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
+
+        // Agora computamos a matriz de Projeção.
+        glm::mat4 projection;
+
+        // Note que, no sistema de coordenadas da câmera, os planos near e far
+        // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
+        float nearplane = -0.1f;  // Posição do "near plane"
+        float farplane  = -25.0f; // Posição do "far plane"
+
+
+        // Projeção Perspectiva.
+        // Para definição do field of view (FOV), veja slides 205-215 do documento Aula_09_Projecoes.pdf.
+        float field_of_view = 3.141592 / 3.0f;
+        glm::mat4 perspective = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
+
+        // Projeção Ortográfica.
+        // Para definição dos valores l, r, b, t ("left", "right", "bottom", "top"),
+        // PARA PROJEÇÃO ORTOGRÁFICA veja slides 219-224 do documento Aula_09_Projecoes.pdf.
+        // Para simular um "zoom" ortográfico, computamos o valor de "t"
+        // utilizando a variável g_CameraDistance.
+        float t = 1.5f*g_CameraDistance/2.5f;
+        float b = -t;
+        //float r = t*g_ScreenRatio;
+        float l = -r;
+        glm::mat4 orthographic = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
+
+
+        glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
+
+        // Enviamos as matrizes "view" e "projection" para a placa de vídeo
+        // (GPU). Veja o arquivo "shader_vertex.glsl", onde estas são
+        // efetivamente aplicadas em todos os pontos.
+        glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
+        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(perspective));
+
+        #define SPHERE 0
+        #define BULLET 1
+        #define PLANE  2
+        #define FLASHLIGHT  3
+        #define REVOLVER  4
+        #define SCREEN  5
+        #define SKULL  6
+        #define EYE  7
+        #define SMOKE  8
+        #define ARVORE  9
+        #define CABINE  10
+        #define CARRO  11
+
+        // PLANE
+        model = Matrix_Translate(0.0f, 0.0f, 0.0f)
+              * Matrix_Scale(350.0f,1.0f,350.0f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, PLANE);
+        DrawVirtualObject("the_plane");
+
+        // CABINE
+        model = Matrix_Translate(0.0f, 0.0f, 0.0f)
+              * Matrix_Scale(0.1f,0.1f,0.1f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, CABINE);
+        DrawVirtualObject("WoodCabin");
+        DrawVirtualObject("Roof");
+
+        // CARRO & VIDROS
+        model = Matrix_Translate(carro.pos[0], 0.0f, carro.pos[2])
+              * Matrix_Scale(0.01f,0.01f,0.01f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, CARRO);
+        // Body
+        glUniform1i(parte_carro_uniform, 1);
+        DrawVirtualObject("Body1");
+        DrawVirtualObject("Steel");
+        DrawVirtualObject("UnderCar");
+        DrawVirtualObject("Hood");
+        DrawVirtualObject("Body");
+        // Vidros
+        glUniform1i(parte_carro_uniform, 2);
+        DrawVirtualObject("Glass");
+        DrawVirtualObject("Plastik");
+
+        DrawVirtualObject("Light1");
+        DrawVirtualObject("Light2");
+        DrawVirtualObject("Light3");
+        // Logo
+        glUniform1i(parte_carro_uniform, 3);
+        DrawVirtualObject("Logo");
+        // Placa
+        glUniform1i(parte_carro_uniform, 4);
+        DrawVirtualObject("Plaque");
+        DrawVirtualObject("Plaque1");
+        // Pisca
+        glUniform1i(parte_carro_uniform, 5);
+        DrawVirtualObject("GuidLight1");
+        DrawVirtualObject("GuidLight");
+        // Faróis
+        glUniform1i(parte_carro_uniform, 6);
+        DrawVirtualObject("Light");
+
+        glUniform1i(parte_carro_uniform, 7);
+        // Pneus
+        glUniform1i(parte_carro_uniform, 8);
+        DrawVirtualObject("Tire");
+        DrawVirtualObject("Tire1");
+        DrawVirtualObject("Tire2");
+        DrawVirtualObject("Tire3");
+        // ARVORES
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        for(int i=0; i<NUM_ARVORES; i++)
+        {
+            // TRONCO
+            model = Matrix_Translate(arvores[i].pos.x,0.0f,arvores[i].pos.z)
+                  * Matrix_Scale(1.0f,1.0f,1.0f)
+                  * Matrix_Rotate_Y(arvores[i].rotacao);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, ARVORE);
+            glUniform1i(tronco_uniform, true);
+            DrawVirtualObject("bark1");
+            // FOLHAS
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, ARVORE);
+            glUniform1i(tronco_uniform, false);
+            DrawVirtualObject("leaves1");
+        }
+        // Resetamos a matriz View para que os objetos carregados a partir daqui não se movimentem na tela.
+        glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
+
+        // SCREEN
+        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(orthographic));
+        glDisable(GL_DEPTH_TEST);
+        model = Matrix_Translate(0.0f,0.0f,-2.0f)
+            * Matrix_Scale(0.1f,0.1f,1.0f)
+            * Matrix_Rotate_X(3.14/2);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, SCREEN);
+        DrawVirtualObject("the_screen");
+        glEnable(GL_DEPTH_TEST);
+
+        // Imprimimos a quantidade de munição que o jogador possui
+        TextRendering_Menu(window);
+        glfwSwapBuffers(window);
+
+
+        //texto do menu
+        TextRendering_ShowSecondsEllapsed(window);
+
+        // Verificamos com o sistema operacional se houve alguma interação do
+        // usuário (teclado, mouse, ...). Caso positivo, as funções de callback
+        // definidas anteriormente usando glfwSet*Callback() serão chamadas
+        // pela biblioteca GLFW.
+        glfwPollEvents();
+
+
+
+
+        while (sair_menu && !glfwWindowShouldClose(window)){
+            glfwSetWindowMonitor(window, _fullscreen ? glfwGetPrimaryMonitor() : NULL, 0, 0, 4000, 4000, GLFW_DONT_CARE);
         // Variáveis de tempo
         float current_time = (float)glfwGetTime();
         delta_t = current_time - prev_time;
@@ -1119,6 +1325,8 @@ int main(int argc, char* argv[])
         // definidas anteriormente usando glfwSet*Callback() serão chamadas
         // pela biblioteca GLFW.
         glfwPollEvents();
+        }
+
     }
 
     // Finalizamos o uso dos recursos do sistema operacional
@@ -2025,6 +2233,22 @@ void TextRendering_ShowCarTip(GLFWwindow* window, float estado_carro)
     float charwidth = TextRendering_CharWidth(window);
 
     TextRendering_PrintString(window, buffer, 0.0f-(numchars + 1)*charwidth, -0.2f+lineheight, 2.0f);
+}
+
+// escrevendo na tela o menu
+
+void TextRendering_Menu(GLFWwindow* window){
+    if ( !g_ShowInfoText )
+        return;
+
+    char buffer[200];
+
+    int numchars = snprintf(buffer, 200, "Aperte [SPACE] pra comecar o jogo!");
+
+    float lineheight = TextRendering_LineHeight(window);
+    float charwidth = TextRendering_CharWidth(window);
+
+    TextRendering_PrintString(window, buffer, -0.5f-(numchars + 1)*charwidth, lineheight, 5.0f);
 }
 
 // Função para debugging: imprime no terminal todas informações de um modelo
