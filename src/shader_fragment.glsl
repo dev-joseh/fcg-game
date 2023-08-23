@@ -79,6 +79,7 @@ uniform int nozzle_flash;
 bool opaco=false;
 uniform bool tronco;
 uniform int parte_carro;
+uniform bool tela_de_menu;
 
 // Constantes
 #define M_PI   3.14159265358979323846
@@ -214,18 +215,6 @@ void main()
         U = texcoords.x;
         V = texcoords.y;
     }
-    else if ( object_id == CARRO )
-    {
-        opaco = true;
-        // Propriedades espectrais do chão
-        Kd = vec3(0.1,0.1,0.1);
-        Ks = vec3(0.9,0.5,0.5);
-        Ka = vec3(0.09,0.01,0.01);
-        q = 30.0;
-
-        U = texcoords.x;
-        V = texcoords.y;
-    }
     // == JOGADOR ==
     else if ( object_id == FLASHLIGHT )
     {
@@ -316,7 +305,6 @@ void main()
     // Espectro da fonte de iluminação
     vec3 I = vec3(1.0,1.0,1.0); // Espectro da fonte de luz
 
-    // Espectro da luz ambiente
     vec3 Ia = vec3(0.1,0.1,0.1); // Espectro da luz ambiente
 
     // Termo difuso utilizando a lei dos cossenos de Lambert
@@ -339,6 +327,11 @@ void main()
     vec3 D = lambert_diffuse_term * 0.5 * luz_lanterna(l, sv, potencia_lanterna);
     vec3 S = (lambert_diffuse_term * 0.5 + phong_specular_term) * luz_lanterna(l, sv, potencia_lanterna);
     vec3 NF = ambient_term*nozzle_flash*5;
+
+    if(tela_de_menu)
+    {
+        A = A*1000;
+    }
 
     // Define a textura dos objetos opacos
     if(opaco)

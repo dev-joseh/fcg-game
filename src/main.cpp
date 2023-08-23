@@ -317,6 +317,7 @@ GLint smoke_life_uniform;
 GLint nozzle_flash_uniform;
 GLint tronco_uniform;
 GLint parte_carro_uniform;
+GLint tela_de_menu_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
@@ -559,23 +560,24 @@ int main(int argc, char* argv[])
     float Yspeed, gravity = 3.0f;         // Aceleração da queda
     float prev_time = (float)glfwGetTime();
 
-
+    // Variáveis menu
     bool sair_menu = false;
+    float camera_pos;
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
-
-        if (tecla_SPACE_pressionada){       // Pressionar espaço p sair do menu e começar o jogo
+        glUniform1i(tela_de_menu_uniform, true);
+        if (tecla_SPACE_pressionada)       // Pressionar espaço p sair do menu e começar o jogo
             sair_menu = true;
-        }
+
         glfwSetWindowMonitor(window, _fullscreen ? glfwGetPrimaryMonitor() : NULL, 0, 0, 4000, 4000, GLFW_DONT_CARE);
         // Variáveis de tempo
         float current_time = (float)glfwGetTime();
         delta_t = current_time - prev_time;
         prev_time = current_time;
 
-        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
         // "Pintamos" todos os pixels do framebuffer com a cor definida acima,
         // e também resetamos todos os pixels do Z-buffer (depth buffer).
@@ -591,23 +593,19 @@ int main(int argc, char* argv[])
         // e ScrollCallback().
 
         //posição da camera look-at
-
-
+        #define CAMERA_VEL 0.5f
+        #define CAMERA_H   0.707f
+        camera_pos += delta_t*CAMERA_VEL;
         float r = g_CameraDistance;
-        float y = r*sin(g_CameraPhi);
-        float z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
-        float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
+        float y = r*sin(CAMERA_H);
+        float z = r*cos(CAMERA_H)*cos(camera_pos);
+        float x = r*cos(CAMERA_H)*sin(camera_pos);
 
-        // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
-        // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
+        // Variáveis de câmera Look-At
         glm::vec4 camera_position_c  = glm::vec4(4*x,4*y,4*z,1.0f); // Ponto "c", centro da câmera
         glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
         glm::vec4 camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
         glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
-
-
-
-        // A câmera pode sofrer efeitos como shaking durante o dano ou na caminhada, mas isso não irá mudar a posição do jogador.
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para definir o sistema de coordenadas da câmera.
         glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
@@ -615,28 +613,19 @@ int main(int argc, char* argv[])
         // Agora computamos a matriz de Projeção.
         glm::mat4 projection;
 
-        // Note que, no sistema de coordenadas da câmera, os planos near e far
-        // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -25.0f; // Posição do "far plane"
-
+        float farplane  = -30.0f; // Posição do "far plane"
 
         // Projeção Perspectiva.
-        // Para definição do field of view (FOV), veja slides 205-215 do documento Aula_09_Projecoes.pdf.
         float field_of_view = 3.141592 / 3.0f;
         glm::mat4 perspective = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
 
         // Projeção Ortográfica.
-        // Para definição dos valores l, r, b, t ("left", "right", "bottom", "top"),
-        // PARA PROJEÇÃO ORTOGRÁFICA veja slides 219-224 do documento Aula_09_Projecoes.pdf.
-        // Para simular um "zoom" ortográfico, computamos o valor de "t"
-        // utilizando a variável g_CameraDistance.
         float t = 1.5f*g_CameraDistance/2.5f;
         float b = -t;
         //float r = t*g_ScreenRatio;
         float l = -r;
         glm::mat4 orthographic = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
-
 
         glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
 
@@ -649,15 +638,19 @@ int main(int argc, char* argv[])
         #define SPHERE 0
         #define BULLET 1
         #define PLANE  2
-        #define FLASHLIGHT  3
-        #define REVOLVER  4
-        #define SCREEN  5
-        #define SKULL  6
-        #define EYE  7
-        #define SMOKE  8
         #define ARVORE  9
         #define CABINE  10
         #define CARRO  11
+
+        // SPHERE
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_CULL_FACE);
+        model = Matrix_Translate(camera_position_c[0], camera_position_c[1], camera_position_c[2]);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, SPHERE);
+        DrawVirtualObject("the_sphere");
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
 
         // PLANE
         model = Matrix_Translate(0.0f, 0.0f, 0.0f)
@@ -716,6 +709,7 @@ int main(int argc, char* argv[])
         DrawVirtualObject("Tire1");
         DrawVirtualObject("Tire2");
         DrawVirtualObject("Tire3");
+
         // ARVORES
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -738,17 +732,6 @@ int main(int argc, char* argv[])
         // Resetamos a matriz View para que os objetos carregados a partir daqui não se movimentem na tela.
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
 
-        // SCREEN
-        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(orthographic));
-        glDisable(GL_DEPTH_TEST);
-        model = Matrix_Translate(0.0f,0.0f,-2.0f)
-            * Matrix_Scale(0.1f,0.1f,1.0f)
-            * Matrix_Rotate_X(3.14/2);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, SCREEN);
-        DrawVirtualObject("the_screen");
-        glEnable(GL_DEPTH_TEST);
-
         // Imprimimos a quantidade de munição que o jogador possui
         TextRendering_Menu(window);
         glfwSwapBuffers(window);
@@ -764,10 +747,11 @@ int main(int argc, char* argv[])
         glfwPollEvents();
 
 
-
-
         while (sair_menu && !glfwWindowShouldClose(window)){
-            glfwSetWindowMonitor(window, _fullscreen ? glfwGetPrimaryMonitor() : NULL, 0, 0, 4000, 4000, GLFW_DONT_CARE);
+
+        glfwSetWindowMonitor(window, _fullscreen ? glfwGetPrimaryMonitor() : NULL, 0, 0, 4000, 4000, GLFW_DONT_CARE);
+
+        glUniform1i(tela_de_menu_uniform, false);
         // Variáveis de tempo
         float current_time = (float)glfwGetTime();
         delta_t = current_time - prev_time;
@@ -1468,6 +1452,7 @@ void LoadShadersFromFiles()
     nozzle_flash_uniform = glGetUniformLocation(g_GpuProgramID, "nozzle_flash"); // Variável usada para dizer se é para desenhar o flash do tiro da arma
     tronco_uniform = glGetUniformLocation(g_GpuProgramID, "tronco"); // Variável usada para dizer se é para desenhar o tronco ou as folhas da árvore
     parte_carro_uniform = glGetUniformLocation(g_GpuProgramID, "parte_carro"); // Variável usada para definir a textura de cada parte do carro
+    tela_de_menu_uniform = glGetUniformLocation(g_GpuProgramID, "tela_de_menu"); // Variável usada para indicar quando está no menu
 
     // Variáveis em "shader_fragment.glsl" para acesso das imagens de textura
     glUseProgram(g_GpuProgramID);
