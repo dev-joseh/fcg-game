@@ -231,8 +231,8 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 void centerMouse(GLFWwindow* window, int screenWidth, int screenHeight); // Centraliza o mouse na tela
 void TextRendering_ShowSecondsEllapsed(GLFWwindow* window); // Mostra quandos segundos se passaram
 void TextRendering_ShowAMMO(GLFWwindow* window, int ammo);  // Mostra a munição do jogador
-void TextRendering_Menu(GLFWwindow* window);
-glm::vec4 calculateBezierPoint(const glm::vec4& P0, const glm::vec4& P1, const glm::vec4& P2, const glm::vec4& P3, float t);
+void TextRendering_Menu(GLFWwindow* window, int mov_escrita);
+glm::vec4 calculateBezierPoint(const glm::vec4& P0, const glm::vec4& P1, const glm::vec4& P2, const glm::vec4& P3, const glm::vec4& P4, const glm::vec4& P5, float t);
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
@@ -292,6 +292,8 @@ bool tecla_R_pressionada = false;     // Recarrega arma
 bool tecla_E_pressionada = false;     // Conserta o carro
 bool tecla_SPACE_pressionada = false; // Pulo
 bool tecla_SHIFT_pressionada = false; // Corrida
+
+bool tecla_K_pressionada = false; // TESTE PRA TELA FINAL DO JOGO, SERÁ ARRUMADO
 
 float g_Theta = PI / 4;
 float g_Phi = PI / 6;
@@ -608,6 +610,10 @@ int main(int argc, char* argv[])
     // Variáveis menu
     bool sair_menu = false;
     float camera_pos;
+    int mov_escrita = 0;
+
+    //Variaveis de fim de jogo
+    bool fim_de_jogo = false;
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -763,7 +769,10 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
 
         //texto do menu
-        TextRendering_Menu(window);
+
+        TextRendering_Menu(window, mov_escrita);
+        mov_escrita++;
+
         glfwSwapBuffers(window);
 
         TextRendering_ShowSecondsEllapsed(window);
@@ -777,6 +786,11 @@ int main(int argc, char* argv[])
 
         // =========================================== GAMEPLAY ===========================================
         while (sair_menu && !glfwWindowShouldClose(window)){
+
+        if (tecla_K_pressionada){
+            fim_de_jogo = true;
+            break;
+        }
 
         glfwSetWindowMonitor(window, _fullscreen ? glfwGetPrimaryMonitor() : NULL, 0, 0, 4000, 4000, GLFW_DONT_CARE);
 
@@ -1157,11 +1171,13 @@ int main(int argc, char* argv[])
         glm::vec4 P0(10.0f, 1.0f, 0.0f, 1.0f);           // Ponto inicial
         glm::vec4 P1(5.0f, 2.0f, 12.0f, 1.0f);           // Primeiro ponto intermediário
         glm::vec4 P2(0.0f, -1.0f, 20.0f, 1.0f);           // Segundo ponto intermediário
-        glm::vec4 P3(-10.0f, 2.0f, 0.0f, 1.0f);           // Ponto final
+        glm::vec4 P3(-10.0f, 4.0f, 0.0f, 1.0f);           // Terceiro ponto intermediário
+        glm::vec4 P4(-5.0f, -1.0f, -20.0f, 1.0f);           // Quarto ponto intermediário
+        glm::vec4 P5 = P0;           // Ponto final
         float t_bezier = fmod(glfwGetTime(), 10.0) / 10.0; // Varia t_bezier de 0 a 1 a cada 10 segundos
-        glm::vec4 pointOnBezierCurve = calculateBezierPoint(P0, P1, P2, P3, t_bezier);
+        glm::vec4 pointOnBezierCurve = calculateBezierPoint(P0, P1, P2, P3, P4, P5, t_bezier);
 
-        monstro_bezier.orientacao = normalize(monstro_bezier.pos - jogador.pos);
+        monstro_bezier.orientacao = normalize(monstro_bezier.pos);
         monstro_bezier.rotacao = atan2(monstro_bezier.orientacao.x, monstro_bezier.orientacao.z) + 3.14f;
         monstro_bezier.pos = glm::vec4(pointOnBezierCurve);
 
@@ -1449,7 +1465,35 @@ int main(int argc, char* argv[])
         // usuário (teclado, mouse, ...). Caso positivo, as funções de callback
         // definidas anteriormente usando glfwSet*Callback() serão chamadas
         // pela biblioteca GLFW.
+
+
         glfwPollEvents();
+        }
+
+
+
+        while (fim_de_jogo && !glfwWindowShouldClose(window)){
+            // Variáveis de tempo
+            float current_time = (float)glfwGetTime();
+            delta_t = current_time - prev_time;
+            prev_time = current_time;
+
+            // Aqui executamos as operações de renderização
+
+            // Pedimos para a GPU utilizar o programa de GPU criado acima (contendo
+            // os shaders de vértice e fragmentos).
+            glUseProgram(TRANSPARENT);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDisable(GL_BLEND);
+
+            //TextRendering_Menu(window, mov_escrita);
+            glfwSwapBuffers(window);
+            // Verificamos com o sistema operacional se houve alguma interação do
+            // usuário (teclado, mouse, ...). Caso positivo, as funções de callback
+            // definidas anteriormente usando glfwSet*Callback() serão chamadas
+            // pela biblioteca GLFW.
+            glfwPollEvents();
         }
 
     }
@@ -1462,17 +1506,22 @@ int main(int argc, char* argv[])
 }
 
 //funcao de bezier
-glm::vec4 calculateBezierPoint(const glm::vec4& P0, const glm::vec4& P1, const glm::vec4& P2, const glm::vec4& P3, float t)
+glm::vec4 calculateBezierPoint(const glm::vec4& P0, const glm::vec4& P1, const glm::vec4& P2, const glm::vec4& P3, const glm::vec4& P4, const glm::vec4& P5, float t)
 {
-    float u = 1 - t;
+
     float tt = t * t;
+    float ttt = tt * t;
+    float tttt = ttt * t;
+    float ttttt = tttt * t;
+    float u = 1.0f - t;
     float uu = u * u;
     float uuu = uu * u;
-    float ttt = tt * t;
+    float uuuu = uuu * u;
+    float uuuuu = uuuu * u;
 
-    glm::vec4 pointOnCurve = uuu * P0 + 3 * uu * t * P1 + 3 * u * tt * P2 + ttt * P3;
+    glm::vec4 point = (uuuuu * P0) + (5.0f * uuuu * t * P1) + (10.0f * uuu * tt * P2) + (10.0f * uu * ttt * P3) + (5.0f * u * tttt * P4) + (ttttt * P5);
 
-    return pointOnCurve;
+    return point;
 }
 
 
@@ -2105,6 +2154,14 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 // tecla do teclado. Veja http://www.glfw.org/docs/latest/input_guide.html#input_key
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 {
+        if (key == GLFW_KEY_K)              // TESTE PARA TELA DE FIM DE JOGO, SERÁ ARRUMADO
+    {
+        if (action == GLFW_PRESS)
+            tecla_K_pressionada = true;
+        else if (action == GLFW_RELEASE)
+            tecla_K_pressionada = false;
+    }
+
 
         if (key == GLFW_KEY_W)
     {
@@ -2378,7 +2435,7 @@ void TextRendering_ShowCarTip(GLFWwindow* window, float estado_carro)
 
 // escrevendo na tela o menu
 
-void TextRendering_Menu(GLFWwindow* window){
+void TextRendering_Menu(GLFWwindow* window, int mov_escrita){
     if ( !g_ShowInfoText )
         return;
 
@@ -2389,7 +2446,7 @@ void TextRendering_Menu(GLFWwindow* window){
     float lineheight = TextRendering_LineHeight(window);
     float charwidth = TextRendering_CharWidth(window);
 
-    TextRendering_PrintString(window, buffer, -0.5f-(numchars + 1)*charwidth, lineheight, 5.0f);
+    TextRendering_PrintString(window, buffer, -0.5f-(numchars + 1)*charwidth, 0.60*sin(float(mov_escrita)/200), 5.0f);
 }
 
 // Função para debugging: imprime no terminal todas informações de um modelo
