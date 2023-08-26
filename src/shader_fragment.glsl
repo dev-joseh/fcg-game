@@ -31,6 +31,7 @@ uniform mat4 projection;
 #define ARVORE 9
 #define CABINE 10
 #define CARRO 11
+#define TELA_FINAL 12
 
 uniform int object_id;
 
@@ -56,6 +57,8 @@ uniform sampler2D car_BL;
 uniform sampler2D car_Plaque;
 uniform sampler2D car_Logo;
 uniform sampler2D car_Tire;
+uniform sampler2D tela_fim_de_jogo;
+
 
 // Mapa de normais
 uniform sampler2D chao_normal;
@@ -80,6 +83,8 @@ bool opaco=false;
 uniform bool tronco;
 uniform int parte_carro;
 uniform bool tela_de_menu;
+
+uniform float alpha; // alpha da tela final q vai ficando deixando a tela escura aos poucos
 
 // Constantes
 #define M_PI   3.14159265358979323846
@@ -301,6 +306,11 @@ void main()
         Ka = vec3(0.01,0.01,0.01);
         q = 25.0;
     }
+    else if ( object_id == TELA_FINAL)
+    {
+        U = texcoords.x;
+        V = texcoords.y;
+    }
 
     // Espectro da fonte de iluminação
     vec3 I = vec3(1.0,1.0,1.0); // Espectro da fonte de luz
@@ -404,6 +414,13 @@ void main()
     {
         color.rgb = vec3(0.9f,0.9f,0.0f)*(0.1-S-D);
         color.a = 0.2+luz_lanterna(l, sv, potencia_lanterna);
+    }
+
+    else if ( object_id == TELA_FINAL)
+    {
+        color.rgb = texture(tela_fim_de_jogo, vec2(U,V)).rgb;
+        color.a = 0.2;
+
     }
 
     // Cor final com correção gamma, considerando monitor sRGB.

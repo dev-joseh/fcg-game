@@ -15,6 +15,7 @@
 //  vira
 //    #include <cstdio> // Em C++
 //
+#include <iostream>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -50,9 +51,15 @@
 #include "matrices.h"
 
 // Incluimos o arquivo de testes de colisões
+#include "collisions.h"
 #include "collisions.cpp"
 
 #define PI 3.14159265359f
+
+inline const char * const BoolToString(bool b)
+{
+  return b ? "true" : "false";
+}
 
 // Estrutura que representa um modelo geométrico carregado a partir de um
 // arquivo ".obj". Veja https://en.wikipedia.org/wiki/Wavefront_.obj_file .
@@ -233,10 +240,11 @@ void TextRendering_ShowSecondsEllapsed(GLFWwindow* window); // Mostra quandos se
 void TextRendering_ShowAMMO(GLFWwindow* window, int ammo);  // Mostra a munição do jogador
 void TextRendering_Menu(GLFWwindow* window, int mov_escrita);
 glm::vec4 calculateBezierPoint(const glm::vec4& P0, const glm::vec4& P1, const glm::vec4& P2, const glm::vec4& P3, const glm::vec4& P4, const glm::vec4& P5, float t);
+//bool BoundingBoxIntersection (SceneObject &objeto1, SceneObject &objeto2);
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
-struct SceneObject
+/*struct SceneObject
 {
     std::string  name;        // Nome do objeto
     size_t       first_index; // Índice do primeiro vértice dentro do vetor indices[] definido em BuildTrianglesAndAddToVirtualScene()
@@ -245,7 +253,7 @@ struct SceneObject
     GLuint       vertex_array_object_id; // ID do VAO onde estão armazenados os atributos do modelo
     glm::vec3    bbox_min; // Axis-Aligned Bounding Box do objeto
     glm::vec3    bbox_max;
-};
+};*/
 
 // Abaixo definimos variáveis globais utilizadas em várias funções do código.
 
@@ -254,6 +262,7 @@ struct SceneObject
 // objetos dentro da variável g_VirtualScene, e veja na função main() como
 // estes são acessados.
 std::map<std::string, SceneObject> g_VirtualScene;
+
 
 // Pilha que guardará as matrizes de modelagem.
 std::stack<glm::mat4>  g_MatrixStack;
@@ -451,6 +460,9 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/Textures/car_tex/SamandLogo.png");           // car_Logo
     LoadTextureImage("../../data/Textures/car_tex/Tire.png");                 // car_Tire
 
+    // Tela de fim de jogo
+    LoadTextureImage("../../data/Textures/tela_fim_de_jogo.png");             // tela final
+
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/Objects/sphere.obj");
     ComputeNormals(&spheremodel);
@@ -495,6 +507,10 @@ int main(int argc, char* argv[])
     ObjModel carmodel("../../data/Objects/car.obj");
     ComputeNormals(&carmodel);
     BuildTrianglesAndAddToVirtualScene(&carmodel);
+
+    ObjModel tela_final("../../data/Objects/tela_fim_de_jogo.obj");
+    ComputeNormals(&tela_final);
+    BuildTrianglesAndAddToVirtualScene(&tela_final);
 
     if ( argc > 1 )
     {
@@ -574,6 +590,7 @@ int main(int argc, char* argv[])
 
     // Carro
     cenario.push_back(AABB(glm::vec3(5.0f, 0.0f, -2.5f), glm::vec3(7.0f, 1.0f, 2.5f)));
+    //cenario.push_back(BoundingBoxIntersection(g_VirtualScene["Plaque"], g_VirtualScene["the_sphere"])))
     // Casa chão
     cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.3f), glm::vec3(3.3f, 0.65f, 3.3f)));
     // Casa parede sul
@@ -612,8 +629,23 @@ int main(int argc, char* argv[])
     float camera_pos;
     int mov_escrita = 0;
 
+
+
     //Variaveis de fim de jogo
     bool fim_de_jogo = false;
+
+    for (const auto& entry : g_VirtualScene) {
+        const std::string& objectName = entry.first; // Chave (nome do objeto)
+        const SceneObject& sceneObj = entry.second;  // Valor (estrutura SceneObject)
+
+        const glm::vec3& bboxMin = sceneObj.bbox_min;
+        const glm::vec3& bboxMax = sceneObj.bbox_max;
+
+        std::cout << "Object Name: " << objectName << std::endl;
+        std::cout << "Bounding Box Min: (" << bboxMin.x << ", " << bboxMin.y << ", " << bboxMin.z << ")" << std::endl;
+        std::cout << "Bounding Box Max: (" << bboxMax.x << ", " << bboxMax.y << ", " << bboxMax.z << ")" << std::endl;
+}
+
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -843,6 +875,27 @@ int main(int argc, char* argv[])
         // Definimos a bounding box e a bounding sphere do jogador
         jogador.aabb = AABB(glm::vec3(jogador.pos[0]-0.34f, jogador.pos[1], jogador.pos[2]-0.34f), glm::vec3(jogador.pos[0]+0.34f,jogador.pos[1]+1.4f,jogador.pos[2]+0.34f));
         jogador.bounding_sphere = Esfera(glm::vec4(jogador.pos[0],jogador.pos[1]+0.1f,jogador.pos[2], 1.0f), 0.35f);
+        carro.aabb = AABB(glm::vec3(carro.pos[0]-1.00f, carro.pos[1], carro.pos[2]-2.5f), glm::vec3(carro.pos[0]+1.0f,carro.pos[1]+0.2f,carro.pos[2]+2.5f));
+        glm::vec3 bbox_min = glm::vec3(carro.pos[0] - 1.00f, carro.pos[1] -5.0, carro.pos[2] - 2.5f);
+        glm::vec3 bbox_max = glm::vec3(carro.pos[0] + 1.0f, carro.pos[1] +5.0f, carro.pos[2] + 2.5f);
+        glm::vec3 bbox_center = glm::vec3(carro.pos[0], carro.pos[1], carro.pos[2]);
+
+        glm::vec3 x_normal = glm::normalize(glm::vec3(1.0f, 0.0f, 0.0f));
+        glm::vec3 y_normal = glm::normalize(glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::vec3 z_normal = glm::normalize(glm::vec3(0.0f, 0.0f, 1.0f));
+
+        glm::vec3 normals[6] = {
+            (bbox_center - bbox_min).x < (bbox_max - bbox_center).x ? x_normal : -x_normal,
+            (bbox_center - bbox_min).z < (bbox_max - bbox_center).z ? z_normal : -z_normal,
+            (bbox_center - bbox_max).x < (bbox_min - bbox_center).x ? x_normal : -x_normal,
+            (bbox_center - bbox_max).z < (bbox_min - bbox_center).z ? z_normal : -z_normal
+        };
+        std::vector<glm::vec3> normaisDosLadosDoCubo;
+            for (int i = 0; i < 6; ++i) {
+                normaisDosLadosDoCubo.push_back(normals[i]);
+            }
+
+
 
         // Faz o jogador correr quando pressiona SHIFT e não está recarregando
         speed = speed_base;
@@ -850,10 +903,55 @@ int main(int argc, char* argv[])
         {
             speed = speed_base*2;
         }
+        glm::vec4 movimentacao = glm::vec4(1.0f,.0f,1.0f,0.0f); // Valor de movimentação padrão, quando não há obstáculos
+        glm::vec4 movimentacao_invertida = glm::vec4(-1.0f, 0.0f, -1.0f, 0.0f);
+        /*const SceneObject& personagem = g_VirtualScene["the_sphere"];
+        const glm::vec3 bboxMin = personagem.bbox_min;
+        const glm::vec3 bboxMax = personagem.bbox_max;
+
+        std::cout << "Object Name: " << "Plaque" << std::endl;
+        std::cout << "Bounding Box Min: (" << bboxMin.x << ", " << bboxMin.y << ", " << bboxMin.z << ")" << std::endl;
+        std::cout << "Bounding Box Max: (" << bboxMax.x << ", " << bboxMax.y << ", " << bboxMax.z << ")" << std::endl;
+        std::cout << "Posicao do jogador: (" << jogador.pos.x << ", " << jogador.pos.y << ", " << jogador.pos.z << ")" << std::endl;*/
 
 
-        // Realiza a movimentação do jogador, testando se há colisões
-        glm::vec4 movimentacao = glm::vec4(1.0f,0.0f,1.0f,0.0f); // Valor de movimentação padrão, quando não há obstáculos
+        if (tecla_W_pressionada) {
+            glm::vec4 vetorMovimento = -vw * (speed * delta_t) * movimentacao;
+
+            // Verifica se há colisão com qualquer objeto da cena
+            bool colisao = jogador.aabb.EstaColidindoComAABB(carro.aabb);
+
+            if (!colisao) {
+                jogador.pos += vetorMovimento;
+            } else {
+                // Normaliza o vetor de movimento
+                glm::vec4 vetorMovimentoNormalizado = glm::normalize(vetorMovimento);
+
+                // Encontra a normal cuja direção é mais próxima à direção do movimento do jogador
+                glm::vec3 normalEscolhida;
+                float maiorProdutoEscalar = -std::numeric_limits<float>::infinity();
+
+                for (const glm::vec3& normal : normaisDosLadosDoCubo) {
+                    float produtoEscalar = glm::dot(normal, glm::vec3(vetorMovimentoNormalizado));
+
+                    if (produtoEscalar > maiorProdutoEscalar) {
+                        maiorProdutoEscalar = produtoEscalar;
+                        normalEscolhida = normal;
+                    }
+                }
+
+                // Reflete o vetor de movimento em relação à normal escolhida
+                glm::vec4 vetorRefletido = glm::vec4(normalEscolhida, 0.0f) - 2.0f * glm::dot(glm::vec4(normalEscolhida, 0.0f), vetorMovimentoNormalizado) * vetorMovimentoNormalizado;
+
+                if (normalEscolhida.x == 1 || normalEscolhida.x == -1){
+                    vetorRefletido = -vetorRefletido;
+                }
+                // Ajusta o movimento do jogador usando o vetor refletido
+                jogador.pos += vetorRefletido * speed * delta_t*0.5f;
+            }
+        }
+                // Realiza a movimentação do jogador, testando se há colisões
+        /*glm::vec4 movimentacao = glm::vec4(1.0f,0.0f,1.0f,0.0f); // Valor de movimentação padrão, quando não há obstáculos
         if (tecla_W_pressionada)
         {
             for (int i = 0; i < cenario.size(); i++)
@@ -878,9 +976,44 @@ int main(int argc, char* argv[])
                     }
                 }
             jogador.pos += - vw * (speed * delta_t) * movimentacao;
+        }*/
+
+        if (tecla_S_pressionada) {
+            glm::vec4 vetorMovimento = vw * (speed * delta_t) *movimentacao;
+
+            std::cout << BoolToString(jogador.aabb.EstaColidindoComAABB(carro.aabb));
+            bool colisao = jogador.aabb.EstaColidindoComAABB(carro.aabb);
+            if (!colisao) {
+                jogador.pos += vetorMovimento;
+            } else {
+                // Normaliza o vetor de movimento
+                glm::vec4 vetorMovimentoNormalizado = glm::normalize(vetorMovimento);
+
+                // Encontra a normal cuja direção é mais próxima à direção do movimento do jogador
+                glm::vec3 normalEscolhida;
+                float maiorProdutoEscalar = -std::numeric_limits<float>::infinity();
+
+                for (const glm::vec3& normal : normaisDosLadosDoCubo) {
+                    float produtoEscalar = glm::dot(normal, glm::vec3(vetorMovimentoNormalizado));
+
+                    if (produtoEscalar > maiorProdutoEscalar) {
+                        maiorProdutoEscalar = produtoEscalar;
+                        normalEscolhida = normal;
+                    }
+                }
+
+                // Reflete o vetor de movimento em relação à normal escolhida
+                glm::vec4 vetorRefletido = glm::vec4(normalEscolhida, 0.0f) - 2.0f * glm::dot(glm::vec4(normalEscolhida, 0.0f), vetorMovimentoNormalizado) * vetorMovimentoNormalizado;
+
+                if (normalEscolhida.x == 1 || normalEscolhida.x == -1){
+                    vetorRefletido = -vetorRefletido;
+                }
+                // Ajusta o movimento do jogador usando o vetor refletido
+                jogador.pos += +vetorRefletido * speed * delta_t*0.5f;
+            }
         }
 
-        if (tecla_S_pressionada)
+ /*       if (tecla_S_pressionada)
         {
             for (int i = 0; i < cenario.size(); i++)
                 if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
@@ -904,9 +1037,46 @@ int main(int argc, char* argv[])
                     }
                 }
             jogador.pos += vw * (speed * delta_t) * movimentacao;
+        }*/
+
+        if (tecla_D_pressionada) {
+            glm::vec4 vetorMovimento = vu * (speed * delta_t) * movimentacao;
+
+            bool colisao = jogador.aabb.EstaColidindoComAABB(carro.aabb);
+            if (!colisao) {
+                jogador.pos += vetorMovimento;
+            } else {
+                // Normaliza o vetor de movimento
+                glm::vec4 vetorMovimentoNormalizado = glm::normalize(vetorMovimento);
+
+                // Encontra a normal cuja direção é mais próxima à direção do movimento do jogador
+                glm::vec3 normalEscolhida;
+                float maiorProdutoEscalar = -std::numeric_limits<float>::infinity();
+
+                for (const glm::vec3& normal : normaisDosLadosDoCubo) {
+                    float produtoEscalar = glm::dot(normal, glm::vec3(vetorMovimentoNormalizado));
+
+                    if (produtoEscalar > maiorProdutoEscalar) {
+                        maiorProdutoEscalar = produtoEscalar;
+                        normalEscolhida = normal;
+                    }
+                }
+
+
+
+                // Reflete o vetor de movimento em relação à normal escolhida
+                glm::vec4 vetorRefletido = glm::vec4(normalEscolhida, 0.0f) - 2.0f * glm::dot(glm::vec4(normalEscolhida, 0.0f), vetorMovimentoNormalizado) * vetorMovimentoNormalizado;
+
+
+                if (normalEscolhida.x == 1 || normalEscolhida.x == -1){
+                    vetorRefletido = -vetorRefletido;
+                }
+                // Ajusta o movimento do jogador usando o vetor refletido
+                jogador.pos += +vetorRefletido * speed * delta_t*0.5f;
+            }
         }
 
-        if (tecla_D_pressionada)
+        /*if (tecla_D_pressionada)
         {
             for (int i = 0; i < cenario.size(); i++)
                 if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
@@ -930,9 +1100,44 @@ int main(int argc, char* argv[])
                     }
                 }
             jogador.pos += vu * (speed * delta_t) * movimentacao;
-        }
+        }*/
 
-        if (tecla_A_pressionada)
+
+
+        if (tecla_A_pressionada) {
+            glm::vec4 vetorMovimento = -vu * (speed * delta_t) * movimentacao;
+
+            bool colisao = jogador.aabb.EstaColidindoComAABB(carro.aabb);
+            if (!colisao) {
+                jogador.pos += vetorMovimento;
+            } else {
+                // Normaliza o vetor de movimento
+                glm::vec4 vetorMovimentoNormalizado = glm::normalize(vetorMovimento);
+
+                // Encontra a normal cuja direção é mais próxima à direção do movimento do jogador
+                glm::vec3 normalEscolhida;
+                float maiorProdutoEscalar = -std::numeric_limits<float>::infinity();
+
+                for (const glm::vec3& normal : normaisDosLadosDoCubo) {
+                    float produtoEscalar = glm::dot(normal, glm::vec3(vetorMovimentoNormalizado));
+
+                    if (produtoEscalar > maiorProdutoEscalar) {
+                        maiorProdutoEscalar = produtoEscalar;
+                        normalEscolhida = normal;
+                    }
+                }
+
+                // Reflete o vetor de movimento em relação à normal escolhida
+                glm::vec4 vetorRefletido = glm::vec4(normalEscolhida, 0.0f) - 2.0f * glm::dot(glm::vec4(normalEscolhida, 0.0f), vetorMovimentoNormalizado) * vetorMovimentoNormalizado;
+
+                if (normalEscolhida.x == 1 || normalEscolhida.x == -1){
+                    vetorRefletido = -vetorRefletido;
+                }
+                // Ajusta o movimento do jogador usando o vetor refletido
+                jogador.pos += vetorRefletido * speed * delta_t*0.5f;
+            }
+        }
+        /*if (tecla_A_pressionada)
         {
             for (int i = 0; i < cenario.size(); i++)
                 if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
@@ -956,7 +1161,7 @@ int main(int argc, char* argv[])
                     }
                 }
             jogador.pos += -vu * (speed * delta_t) * movimentacao;
-        }
+        }*/
 
         // Prende o jogador em um 'loop' dentro da área de jogo, caso ele se afaste demais da cabine
         if ( sqrt(pow(jogador.pos[0],2)+pow(jogador.pos[2],2)) >= ARVORES_DIST + 27.0f)
@@ -976,6 +1181,7 @@ int main(int argc, char* argv[])
             if (shake_cima)
             {
                 jogador.camera[1] += 0.1*(speed * delta_t);
+                jogador.pos[1] += 0.1*(speed * delta_t);
                 if(jogador.camera[1]>=jogador.pos[1]+1.4f)
                     shake_cima = false;
             }
@@ -999,7 +1205,7 @@ int main(int argc, char* argv[])
         if (jogador.aabb.EstaColidindoComPlano(chao))
             Yspeed = 0.0f;
         else for(int i=0; i<cenario.size(); i++)
-            if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
+            if (jogador.aabb.EstaColidindoComAABB(carro.aabb))
                     Yspeed = 0.0f;
                 else
                     Yspeed -= gravity * delta_t;
@@ -1009,10 +1215,10 @@ int main(int argc, char* argv[])
         if (tecla_SPACE_pressionada)
             if(jogador.aabb.EstaColidindoComPlano(chao))
                 Yspeed = speed_base;
-            else
+           /* else
                 for(int i=0; i<cenario.size(); i++)
                     if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
-                        Yspeed = speed_base;
+                        Yspeed = speed_base;*/
 
         // jogador.bounding_sphere.VaiColidirComAABB(cenario[i], (jogador.bounding_sphere.center-ipis))==-1)
 
@@ -1242,6 +1448,7 @@ int main(int argc, char* argv[])
         #define ARVORE  9
         #define CABINE  10
         #define CARRO  11
+        #define TELA_FINAL 12
 
         // SPHERE
         glDisable(GL_DEPTH_TEST);
@@ -1471,8 +1678,13 @@ int main(int argc, char* argv[])
         }
 
 
-
+        int i = 0;
         while (fim_de_jogo && !glfwWindowShouldClose(window)){
+
+            glfwSetWindowMonitor(window, _fullscreen ? glfwGetPrimaryMonitor() : NULL, 0, 0, 4000, 4000, GLFW_DONT_CARE);
+
+            // Serve para mudar a iluminação global durante a gameplay
+            glUniform1i(tela_de_menu_uniform, false);
             // Variáveis de tempo
             float current_time = (float)glfwGetTime();
             delta_t = current_time - prev_time;
@@ -1480,21 +1692,307 @@ int main(int argc, char* argv[])
 
             // Aqui executamos as operações de renderização
 
+            // Definimos a cor do "fundo" do framebuffer como branco.  Tal cor é
+            // definida como coeficientes RGBA: Red, Green, Blue, Alpha; isto é:
+            // Vermelho, Verde, Azul, Alpha (valor de transparência).
+            // Conversaremos sobre sistemas de cores nas aulas de Modelos de Iluminação.
+            //
+            //           R     G     B     A
+            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+            // "Pintamos" todos os pixels do framebuffer com a cor definida acima,
+            // e também resetamos todos os pixels do Z-buffer (depth buffer).
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
             // Pedimos para a GPU utilizar o programa de GPU criado acima (contendo
             // os shaders de vértice e fragmentos).
-            glUseProgram(TRANSPARENT);
+            glUseProgram(g_GpuProgramID);
+
+            // Computamos a posição da câmera utilizando coordenadas esféricas.  As
+            // variáveis g_CameraDistance, g_CameraPhi, e g_CameraTheta são
+            // controladas pelo mouse do usuário. Veja as funções CursorPosCallback()
+            // e ScrollCallback().
+            float vy = sin(g_CameraPhi);
+            float vz = cos(g_CameraPhi)*cos(g_CameraTheta);
+            float vx = cos(g_CameraPhi)*sin(g_CameraTheta);
+
+            // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
+            // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
+            // glm::vec4 camera_look        =  // Direção para onde a câmera estará olhando
+            glm::vec4 camera_view_vector = glm::vec4(vx,vy,vz,0.0f); // Vetor "view", sentido para onde a câmera está virada
+            glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up"
+            glm::vec4 vw = -glm::normalize(camera_view_vector);
+            glm::vec4 vu = glm::normalize(crossproduct(camera_up_vector, vw));
+            glm::vec4 vv = crossproduct(vw, vu);
+
+            // A câmera pode sofrer efeitos como shaking durante o dano ou na caminhada, mas isso não irá mudar a posição do jogador.
+
+            // --------------------------------------------------------  JOGADOR  -----------------------------------------------------------
+
+            // Faz o jogador correr quando pressiona SHIFT e não está recarregando
+            speed = speed_base;
+
+            // Envia a informação da lanterna para o Fragment Shader, para ligar ou desligar a luz.
+            glUniform1i(lanterna_ligada_uniform, lanterna_ligada ? 1 : 0);
+
+            // O eixo z da câmera sempre é igual ao eixo da posição do jogador
+            jogador.camera[0] = jogador.pos[0];
+            jogador.camera[2] = jogador.pos[2];
+
+            // A posição dos objetos irá se mover conforme o jogador caminha ou recarrega a arma
+            glm::vec3 lanterna_pos = glm::vec3(0.0f,(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f,-0.6f);
+            glm::vec3 revolver_pos = glm::vec3(+0.6f,-(jogador.camera[1]-(jogador.pos[1]+1.4f))*0.2f-0.4f+reload_move+recoil,-1.2f);
+
+
+
+            // Computamos a matriz "View" utilizando os parâmetros da câmera para definir o sistema de coordenadas da câmera.
+            glm::mat4 view = Matrix_Camera_View(jogador.camera, camera_view_vector, vv);
+
+            // Agora computamos a matriz de Projeção.
+            glm::mat4 projection;
+
+            // Note que, no sistema de coordenadas da câmera, os planos near e far
+            // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
+            float nearplane = -0.1f;  // Posição do "near plane"
+            float farplane  = -25.0f; // Posição do "far plane"
+
+
+            // Projeção Perspectiva.
+            // Para definição do field of view (FOV), veja slides 205-215 do documento Aula_09_Projecoes.pdf.
+            float field_of_view = PI / 3.0f;
+            glm::mat4 perspective = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
+
+            // Projeção Ortográfica.
+            // Para definição dos valores l, r, b, t ("left", "right", "bottom", "top"),
+            // PARA PROJEÇÃO ORTOGRÁFICA veja slides 219-224 do documento Aula_09_Projecoes.pdf.
+            // Para simular um "zoom" ortográfico, computamos o valor de "t"
+            // utilizando a variável g_CameraDistance.
+            float t = 1.5f*g_CameraDistance/2.5f;
+            float b = -t;
+            float r = t*g_ScreenRatio;
+            float l = -r;
+            glm::mat4 orthographic = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
+
+
+            glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
+
+            // Enviamos as matrizes "view" e "projection" para a placa de vídeo
+            // (GPU). Veja o arquivo "shader_vertex.glsl", onde estas são
+            // efetivamente aplicadas em todos os pontos.
+            glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
+            glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(perspective));
+
+            #define SPHERE 0
+            #define BULLET 1
+            #define PLANE  2
+            #define FLASHLIGHT  3
+            #define REVOLVER  4
+            #define SCREEN  5
+            #define SKULL  6
+            #define EYE  7
+            #define SMOKE  8
+            #define ARVORE  9
+            #define CABINE  10
+            #define CARRO  11
+            #define TELA_FINAL 12
+
+            // SPHERE
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_CULL_FACE);
+            model = Matrix_Translate(jogador.camera[0], jogador.camera[1], jogador.camera[2]);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, SPHERE);
+            DrawVirtualObject("the_sphere");
+            glEnable(GL_CULL_FACE);
+            glEnable(GL_DEPTH_TEST);
+
+            // PLANE
+            model = Matrix_Translate(0.0f, 0.0f, 0.0f)
+                  * Matrix_Scale(350.0f,1.0f,350.0f);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, PLANE);
+            DrawVirtualObject("the_plane");
+
+            // CABINE
+            model = Matrix_Translate(0.0f, 0.0f, 0.0f)
+                  * Matrix_Scale(0.1f,0.1f,0.1f);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, CABINE);
+            DrawVirtualObject("WoodCabin");
+            DrawVirtualObject("Roof");
+
+            // CARRO & VIDROS
+            model = Matrix_Translate(carro.pos[0], 0.0f, carro.pos[2])
+                  * Matrix_Scale(0.01f,0.01f,0.01f);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, CARRO);
+            // Body
+            glUniform1i(parte_carro_uniform, 1);
+            DrawVirtualObject("Body1");
+            DrawVirtualObject("Steel");
+            DrawVirtualObject("UnderCar");
+            DrawVirtualObject("Hood");
+            DrawVirtualObject("Body");
+            // Vidros
+            glUniform1i(parte_carro_uniform, 2);
+            DrawVirtualObject("Glass");
+            DrawVirtualObject("Plastik");
+
+            DrawVirtualObject("Light1");
+            DrawVirtualObject("Light2");
+            DrawVirtualObject("Light3");
+            // Logo
+            glUniform1i(parte_carro_uniform, 3);
+            DrawVirtualObject("Logo");
+            // Placa
+            glUniform1i(parte_carro_uniform, 4);
+            DrawVirtualObject("Plaque");
+            DrawVirtualObject("Plaque1");
+            // Pisca
+            glUniform1i(parte_carro_uniform, 5);
+            DrawVirtualObject("GuidLight1");
+            DrawVirtualObject("GuidLight");
+            // Faróis
+            glUniform1i(parte_carro_uniform, 6);
+            DrawVirtualObject("Light");
+
+            glUniform1i(parte_carro_uniform, 7);
+            // Pneus
+            glUniform1i(parte_carro_uniform, 8);
+            DrawVirtualObject("Tire");
+            DrawVirtualObject("Tire1");
+            DrawVirtualObject("Tire2");
+            DrawVirtualObject("Tire3");
+
+
+            // ARVORES
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glDisable(GL_BLEND);
+            for(int i=0; i<NUM_ARVORES; i++)
+            {
+                // TRONCO
+                model = Matrix_Translate(arvores[i].pos.x,0.0f,arvores[i].pos.z)
+                      * Matrix_Scale(1.0f,1.0f,1.0f)
+                      * Matrix_Rotate_Y(arvores[i].rotacao);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, ARVORE);
+                glUniform1i(tronco_uniform, true);
+                DrawVirtualObject("bark1");
+                // FOLHAS
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, ARVORE);
+                glUniform1i(tronco_uniform, false);
+                DrawVirtualObject("leaves1");
+            }
 
-            //TextRendering_Menu(window, mov_escrita);
+            // SKULL & EYE
+            for(int i=0; i<N_MONSTROS; i++)
+            {
+                model = Matrix_Translate(monstro[i].pos[0], monstro[i].pos[1], monstro[i].pos[2])
+                      * Matrix_Rotate_Y(monstro[i].rotacao)
+                      * Matrix_Scale(0.02f, 0.02f, 0.02f);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, SKULL);
+                DrawVirtualObject("skull");
+                PushMatrix(model);
+                    model = model * Matrix_Translate(-3.2f, 1.4f, 9.0f)
+                                  * Matrix_Rotate_X(PI/2);
+                    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, EYE);
+                    DrawVirtualObject("eye");
+                    model = model * Matrix_Translate(6.4f, 0.0f, 0.f);
+                    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, EYE);
+                    DrawVirtualObject("eye");
+                PopMatrix(model);
+            }
+
+            model = Matrix_Translate(monstro_bezier.pos[0], monstro_bezier.pos[1], monstro_bezier.pos[2])
+                          * Matrix_Rotate_Y(monstro_bezier.rotacao)
+                          * Matrix_Scale(0.06f, 0.06f, 0.06f);
+                    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, SKULL);
+                    DrawVirtualObject("skull");
+                    PushMatrix(model);
+                        model = model * Matrix_Translate(-3.2f, 1.4f, 9.0f)
+                                      * Matrix_Rotate_X(3.14/2);
+                        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                        glUniform1i(g_object_id_uniform, EYE);
+                        DrawVirtualObject("eye");
+                        model = model * Matrix_Translate(6.4f, 0.0f, 0.f);
+                        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                        glUniform1i(g_object_id_uniform, EYE);
+                        DrawVirtualObject("eye");
+                    PopMatrix(model);
+
+            // Resetamos a matriz View para que os objetos carregados a partir daqui não se movimentem na tela.
+            glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
+
+
+            // FLASHLIGHT
+            model = Matrix_Translate(lanterna_pos[0]-0.6f, lanterna_pos[1]-0.4f, lanterna_pos[2])
+                * Matrix_Scale(0.01f,0.01f,0.01f)
+                * Matrix_Rotate_X(PI);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, FLASHLIGHT);
+            DrawVirtualObject("the_light");
+
+            // REVOLVER
+            model = Matrix_Translate(revolver_pos[0], revolver_pos[1], revolver_pos[2])
+                * Matrix_Scale(0.002f,0.002f,0.002f)
+                * Matrix_Rotate_X(reload_move*2+recoil*2)
+                * Matrix_Rotate_Y(-PI/2);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, REVOLVER);
+            DrawVirtualObject("Handle");
+            DrawVirtualObject("BodyR");
+            DrawVirtualObject("Back_Trigger");
+            DrawVirtualObject("Trigger");
+            DrawVirtualObject("Chamber_Holder");
+            DrawVirtualObject("Chamber");
+            DrawVirtualObject("Barrel");
+
+
+
+            // Texto da tela de fim de jogo
+            TextRendering_Menu(window, i);
+            i++;
+
+            // Desenhamos uma instrução para o jogador se ele estiver próximo do carro
+            if(jogador_proximo_do_carro)
+                TextRendering_ShowCarTip(window, carro.estado);
+
+            // Imprimimos a quantidade de munição que o jogador possui
+            TextRendering_ShowAMMO(window, jogador.ammo);
+
+            // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
+            TextRendering_ShowProjection(window);
+
+            // Imprimimos na tela informação sobre o número de quadros renderizados
+            // por segundo (frames per second).
+            TextRendering_ShowFramesPerSecond(window);
+
+            // Imprimimos na tela quandos segundos se passaram desde o início
+            TextRendering_ShowSecondsEllapsed(window);
+
+            // O framebuffer onde OpenGL executa as operações de renderização não
+            // é o mesmo que está sendo mostrado para o usuário, caso contrário
+            // seria possível ver artefatos conhecidos como "screen tearing". A
+            // chamada abaixo faz a troca dos buffers, mostrando para o usuário
+            // tudo que foi renderizado pelas funções acima.
+            // Veja o link: https://en.wikipedia.org/w/index.php?title=Multiple_buffering&oldid=793452829#Double_buffering_in_computer_graphics
             glfwSwapBuffers(window);
+
             // Verificamos com o sistema operacional se houve alguma interação do
             // usuário (teclado, mouse, ...). Caso positivo, as funções de callback
             // definidas anteriormente usando glfwSet*Callback() serão chamadas
             // pela biblioteca GLFW.
+
+
             glfwPollEvents();
-        }
+            }
+
+
 
     }
 
@@ -1682,6 +2180,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_Plaque"), 18);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_Logo"), 19);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_Tire"), 20);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "tela_fim_de_jogo"), 21);
 
     glUseProgram(0);
 }
