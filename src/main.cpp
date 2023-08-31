@@ -126,8 +126,9 @@ typedef struct ammo
     float rotacao, timer;
     bool ativa;
     Esfera bounding_sphere;
+    AABB aabb;
 
-    ammo() : pos(glm::vec4(0.0f)), rotacao(rotacao), timer(timer), ativa(ativa), bounding_sphere(glm::vec4(0.0f), 0.05f) {}
+    ammo() : pos(glm::vec4(0.0f)), rotacao(rotacao), timer(timer), ativa(ativa), bounding_sphere(glm::vec4(0.0f), 0.05f), aabb(glm::vec3(0.0f), glm::vec3(0.0f)) {}
 
 } AMMO;
 
@@ -151,8 +152,9 @@ typedef struct monstro
     float rotacao;
     bool vivo;
     Esfera bounding_sphere;
+    AABB aabb;
 
-    monstro() : pos(glm::vec4(0.0f)), orientacao(glm::vec4(0.0f)), rotacao(rotacao), vivo(vivo), bounding_sphere(glm::vec4(0.0f), 0.05f) {}
+    monstro() : pos(glm::vec4(0.0f)), orientacao(glm::vec4(0.0f)), rotacao(rotacao), vivo(vivo), bounding_sphere(glm::vec4(0.0f), 0.05f), aabb(glm::vec3(0,0,0), glm::vec3(0,0,0)) {}
 
 } MONSTRO;
 
@@ -465,14 +467,17 @@ int main(int argc, char* argv[])
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/Objects/sphere.obj");
+   // PrintObjModelInfo(&spheremodel);
     ComputeNormals(&spheremodel);
     BuildTrianglesAndAddToVirtualScene(&spheremodel);
 
     ObjModel planemodel("../../data/Objects/plane.obj");
+  //  PrintObjModelInfo(&planemodel);
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
 
     ObjModel flashlightmodel("../../data/Objects/flashlight.obj");
+   // PrintObjModelInfo(&flashlightmodel);
     ComputeNormals(&flashlightmodel);
     BuildTrianglesAndAddToVirtualScene(&flashlightmodel);
 
@@ -481,10 +486,12 @@ int main(int argc, char* argv[])
     BuildTrianglesAndAddToVirtualScene(&revolvermodel);
 
     ObjModel screenmodel("../../data/Objects/screen.obj");
+    //PrintObjModelInfo(&screenmodel);
     ComputeNormals(&screenmodel);
     BuildTrianglesAndAddToVirtualScene(&screenmodel);
 
     ObjModel skullmodel("../../data/Objects/skull.obj");
+    //PrintObjModelInfo(&skullmodel);
     ComputeNormals(&skullmodel);
     BuildTrianglesAndAddToVirtualScene(&skullmodel);
 
@@ -548,6 +555,20 @@ int main(int argc, char* argv[])
                // Seu vetor normal          // Sua posição
     Plano chao(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
 
+   /* for (const auto& entry : g_VirtualScene) {
+        const std::string& objectName = entry.first;
+        const SceneObject& sceneObject = entry.second;
+
+        std::cout << "Object Name: " << objectName << std::endl;
+        std::cout << "First Index: " << sceneObject.first_index << std::endl;
+        std::cout << "Number of Indices: " << sceneObject.num_indices << std::endl;
+        // Imprimir outras informações do objeto, se necessário
+
+        // Chame a função para imprimir as informações do ObjModel
+
+        std::cout << std::endl; // Espaço entre os objetos
+    }*/
+
     // Definimos a matriz monstro que irá guardar informações dos monstros
     MONSTRO monstro[N_MONSTROS];
     for(int i=0; i<N_MONSTROS; i++)
@@ -589,14 +610,14 @@ int main(int argc, char* argv[])
     std::vector<AABB> cenario;
 
     // Carro
-    cenario.push_back(AABB(glm::vec3(5.0f, 0.0f, -2.5f), glm::vec3(7.0f, 1.0f, 2.5f)));
+    //cenario.push_back(AABB(glm::vec3(5.0f, 0.0f, -2.5f), glm::vec3(7.0f, 2.0f, 2.75f)));
     //cenario.push_back(BoundingBoxIntersection(g_VirtualScene["Plaque"], g_VirtualScene["the_sphere"])))
     // Casa chão
-    cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.3f), glm::vec3(3.3f, 0.65f, 3.3f)));
+    //cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.3f), glm::vec3(3.3f, 0.65f, 3.3f)));
     // Casa parede sul
-    cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.3f), glm::vec3(3.0f, 5.0f, -2.95f)));
+    //cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.3f), glm::vec3(3.0f, 5.0f, -2.95f)));
     // Casa parede leste
-    cenario.push_back(AABB(glm::vec3(-2.9f, 0.0f, -3.0f), glm::vec3(-2.0f, 4.0f, 3.0f)));
+    //cenario.push_back(AABB(glm::vec3(-2.9f, 0.0f, -3.0f), glm::vec3(-2.0f, 4.0f, 3.0f)));
     /*
     // Casa parede oeste
     cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.0f), glm::vec3(3.0f, 0.65f, 3.0f)));
@@ -904,7 +925,7 @@ int main(int argc, char* argv[])
             speed = speed_base*2;
         }
         glm::vec4 movimentacao = glm::vec4(1.0f,.0f,1.0f,0.0f); // Valor de movimentação padrão, quando não há obstáculos
-        glm::vec4 movimentacao_invertida = glm::vec4(-1.0f, 0.0f, -1.0f, 0.0f);
+        //glm::vec4 movimentacao_invertida = glm::vec4(-1.0f, 0.0f, -1.0f, 0.0f);
         /*const SceneObject& personagem = g_VirtualScene["the_sphere"];
         const glm::vec3 bboxMin = personagem.bbox_min;
         const glm::vec3 bboxMax = personagem.bbox_max;
@@ -914,254 +935,21 @@ int main(int argc, char* argv[])
         std::cout << "Bounding Box Max: (" << bboxMax.x << ", " << bboxMax.y << ", " << bboxMax.z << ")" << std::endl;
         std::cout << "Posicao do jogador: (" << jogador.pos.x << ", " << jogador.pos.y << ", " << jogador.pos.z << ")" << std::endl;*/
 
-
-        if (tecla_W_pressionada) {
-            glm::vec4 vetorMovimento = -vw * (speed * delta_t) * movimentacao;
-
-            // Verifica se há colisão com qualquer objeto da cena
-            bool colisao = jogador.aabb.EstaColidindoComAABB(carro.aabb);
-
-            if (!colisao) {
-                jogador.pos += vetorMovimento;
-            } else {
-                // Normaliza o vetor de movimento
-                glm::vec4 vetorMovimentoNormalizado = glm::normalize(vetorMovimento);
-
-                // Encontra a normal cuja direção é mais próxima à direção do movimento do jogador
-                glm::vec3 normalEscolhida;
-                float maiorProdutoEscalar = -std::numeric_limits<float>::infinity();
-
-                for (const glm::vec3& normal : normaisDosLadosDoCubo) {
-                    float produtoEscalar = glm::dot(normal, glm::vec3(vetorMovimentoNormalizado));
-
-                    if (produtoEscalar > maiorProdutoEscalar) {
-                        maiorProdutoEscalar = produtoEscalar;
-                        normalEscolhida = normal;
-                    }
-                }
-
-                // Reflete o vetor de movimento em relação à normal escolhida
-                glm::vec4 vetorRefletido = glm::vec4(normalEscolhida, 0.0f) - 2.0f * glm::dot(glm::vec4(normalEscolhida, 0.0f), vetorMovimentoNormalizado) * vetorMovimentoNormalizado;
-
-                if (normalEscolhida.x == 1 || normalEscolhida.x == -1){
-                    vetorRefletido = -vetorRefletido;
-                }
-                // Ajusta o movimento do jogador usando o vetor refletido
-                jogador.pos += vetorRefletido * speed * delta_t*0.5f;
-            }
-        }
-                // Realiza a movimentação do jogador, testando se há colisões
-        /*glm::vec4 movimentacao = glm::vec4(1.0f,0.0f,1.0f,0.0f); // Valor de movimentação padrão, quando não há obstáculos
-        if (tecla_W_pressionada)
-        {
-            for (int i = 0; i < cenario.size(); i++)
-                if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
-                {
-                    // Angulo que o ponto da bounding sphere que está tocando na AABB faz com a movimentação prevista pelo jogador
-                    float t = jogador.bounding_sphere.VaiColidirComAABB(cenario[i], jogador.bounding_sphere.center - vw * (speed * delta_t) * movimentacao);
-                    // Testa haverá colisão com a bounding sphere do jogador
-                    if (t!=-1)
-                    {
-                        // Ajusta a movimentação do jogador para ser tangente ao obstáculo
-                        if (t >= PI/2)
-                        {
-                            movimentacao[0] *= cos(t);
-                            movimentacao[2] *= sin(t);
-                        }
-                        else
-                        {
-                            movimentacao[0] *= sin(t);
-                            movimentacao[2] *= cos(t);
-                        }
-                    }
-                }
+        if (tecla_W_pressionada){
             jogador.pos += - vw * (speed * delta_t) * movimentacao;
-        }*/
-
-        if (tecla_S_pressionada) {
-            glm::vec4 vetorMovimento = vw * (speed * delta_t) *movimentacao;
-
-            std::cout << BoolToString(jogador.aabb.EstaColidindoComAABB(carro.aabb));
-            bool colisao = jogador.aabb.EstaColidindoComAABB(carro.aabb);
-            if (!colisao) {
-                jogador.pos += vetorMovimento;
-            } else {
-                // Normaliza o vetor de movimento
-                glm::vec4 vetorMovimentoNormalizado = glm::normalize(vetorMovimento);
-
-                // Encontra a normal cuja direção é mais próxima à direção do movimento do jogador
-                glm::vec3 normalEscolhida;
-                float maiorProdutoEscalar = -std::numeric_limits<float>::infinity();
-
-                for (const glm::vec3& normal : normaisDosLadosDoCubo) {
-                    float produtoEscalar = glm::dot(normal, glm::vec3(vetorMovimentoNormalizado));
-
-                    if (produtoEscalar > maiorProdutoEscalar) {
-                        maiorProdutoEscalar = produtoEscalar;
-                        normalEscolhida = normal;
-                    }
-                }
-
-                // Reflete o vetor de movimento em relação à normal escolhida
-                glm::vec4 vetorRefletido = glm::vec4(normalEscolhida, 0.0f) - 2.0f * glm::dot(glm::vec4(normalEscolhida, 0.0f), vetorMovimentoNormalizado) * vetorMovimentoNormalizado;
-
-                if (normalEscolhida.x == 1 || normalEscolhida.x == -1){
-                    vetorRefletido = -vetorRefletido;
-                }
-                // Ajusta o movimento do jogador usando o vetor refletido
-                jogador.pos += +vetorRefletido * speed * delta_t*0.5f;
-            }
         }
 
- /*       if (tecla_S_pressionada)
-        {
-            for (int i = 0; i < cenario.size(); i++)
-                if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
-                {
-                    // Angulo que o ponto da bounding sphere que está tocando na AABB faz com a movimentação prevista pelo jogador
-                    float t = jogador.bounding_sphere.VaiColidirComAABB(cenario[i], jogador.bounding_sphere.center + vw * (speed * delta_t) * movimentacao);
-                    // Testa haverá colisão com a bounding sphere do jogador
-                    if (t!=-1)
-                    {
-                        // Ajusta a movimentação do jogador para ser tangente ao obstáculo
-                        if (t > PI/2)
-                        {
-                            movimentacao[0] *= cos(t);
-                            movimentacao[2] *= sin(t);
-                        }
-                        else
-                        {
-                            movimentacao[0] *= sin(t);
-                            movimentacao[2] *= cos(t);
-                        }
-                    }
-                }
+        if (tecla_S_pressionada){
             jogador.pos += vw * (speed * delta_t) * movimentacao;
-        }*/
-
-        if (tecla_D_pressionada) {
-            glm::vec4 vetorMovimento = vu * (speed * delta_t) * movimentacao;
-
-            bool colisao = jogador.aabb.EstaColidindoComAABB(carro.aabb);
-            if (!colisao) {
-                jogador.pos += vetorMovimento;
-            } else {
-                // Normaliza o vetor de movimento
-                glm::vec4 vetorMovimentoNormalizado = glm::normalize(vetorMovimento);
-
-                // Encontra a normal cuja direção é mais próxima à direção do movimento do jogador
-                glm::vec3 normalEscolhida;
-                float maiorProdutoEscalar = -std::numeric_limits<float>::infinity();
-
-                for (const glm::vec3& normal : normaisDosLadosDoCubo) {
-                    float produtoEscalar = glm::dot(normal, glm::vec3(vetorMovimentoNormalizado));
-
-                    if (produtoEscalar > maiorProdutoEscalar) {
-                        maiorProdutoEscalar = produtoEscalar;
-                        normalEscolhida = normal;
-                    }
-                }
-
-
-
-                // Reflete o vetor de movimento em relação à normal escolhida
-                glm::vec4 vetorRefletido = glm::vec4(normalEscolhida, 0.0f) - 2.0f * glm::dot(glm::vec4(normalEscolhida, 0.0f), vetorMovimentoNormalizado) * vetorMovimentoNormalizado;
-
-
-                if (normalEscolhida.x == 1 || normalEscolhida.x == -1){
-                    vetorRefletido = -vetorRefletido;
-                }
-                // Ajusta o movimento do jogador usando o vetor refletido
-                jogador.pos += +vetorRefletido * speed * delta_t*0.5f;
-            }
         }
 
-        /*if (tecla_D_pressionada)
-        {
-            for (int i = 0; i < cenario.size(); i++)
-                if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
-                {
-                    // Angulo que o ponto da bounding sphere que está tocando na AABB faz com a movimentação prevista pelo jogador
-                    float t = jogador.bounding_sphere.VaiColidirComAABB(cenario[i], jogador.bounding_sphere.center + vu * (speed * delta_t) * movimentacao);
-                    // Testa haverá colisão com a bounding sphere do jogador
-                    if (t!=-1)
-                    {
-                        // Ajusta a movimentação do jogador para ser tangente ao obstáculo
-                        if (t >= PI/2)
-                        {
-                            movimentacao[0] *= cos(t);
-                            movimentacao[2] *= sin(t);
-                        }
-                        else
-                        {
-                            movimentacao[0] *= sin(t);
-                            movimentacao[2] *= cos(t);
-                        }
-                    }
-                }
+        if (tecla_D_pressionada){
             jogador.pos += vu * (speed * delta_t) * movimentacao;
-        }*/
-
-
-
-        if (tecla_A_pressionada) {
-            glm::vec4 vetorMovimento = -vu * (speed * delta_t) * movimentacao;
-
-            bool colisao = jogador.aabb.EstaColidindoComAABB(carro.aabb);
-            if (!colisao) {
-                jogador.pos += vetorMovimento;
-            } else {
-                // Normaliza o vetor de movimento
-                glm::vec4 vetorMovimentoNormalizado = glm::normalize(vetorMovimento);
-
-                // Encontra a normal cuja direção é mais próxima à direção do movimento do jogador
-                glm::vec3 normalEscolhida;
-                float maiorProdutoEscalar = -std::numeric_limits<float>::infinity();
-
-                for (const glm::vec3& normal : normaisDosLadosDoCubo) {
-                    float produtoEscalar = glm::dot(normal, glm::vec3(vetorMovimentoNormalizado));
-
-                    if (produtoEscalar > maiorProdutoEscalar) {
-                        maiorProdutoEscalar = produtoEscalar;
-                        normalEscolhida = normal;
-                    }
-                }
-
-                // Reflete o vetor de movimento em relação à normal escolhida
-                glm::vec4 vetorRefletido = glm::vec4(normalEscolhida, 0.0f) - 2.0f * glm::dot(glm::vec4(normalEscolhida, 0.0f), vetorMovimentoNormalizado) * vetorMovimentoNormalizado;
-
-                if (normalEscolhida.x == 1 || normalEscolhida.x == -1){
-                    vetorRefletido = -vetorRefletido;
-                }
-                // Ajusta o movimento do jogador usando o vetor refletido
-                jogador.pos += vetorRefletido * speed * delta_t*0.5f;
-            }
         }
-        /*if (tecla_A_pressionada)
-        {
-            for (int i = 0; i < cenario.size(); i++)
-                if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
-                {
-                    // Angulo que o ponto da bounding sphere que está tocando na AABB faz com a movimentação prevista pelo jogador
-                    float t = jogador.bounding_sphere.VaiColidirComAABB(cenario[i], jogador.bounding_sphere.center - vu * (speed * delta_t) * movimentacao);
-                    // Testa haverá colisão com a bounding sphere do jogador
-                    if (t!=-1)
-                    {
-                        // Ajusta a movimentação do jogador para ser tangente ao obstáculo
-                        if (t >= PI/2)
-                        {
-                            movimentacao[0] *= cos(t);
-                            movimentacao[2] *= sin(t);
-                        }
-                        else
-                        {
-                            movimentacao[0] *= sin(t);
-                            movimentacao[2] *= cos(t);
-                        }
-                    }
-                }
+
+        if (tecla_A_pressionada){
             jogador.pos += -vu * (speed * delta_t) * movimentacao;
-        }*/
+        }
 
         // Prende o jogador em um 'loop' dentro da área de jogo, caso ele se afaste demais da cabine
         if ( sqrt(pow(jogador.pos[0],2)+pow(jogador.pos[2],2)) >= ARVORES_DIST + 27.0f)
@@ -1181,7 +969,7 @@ int main(int argc, char* argv[])
             if (shake_cima)
             {
                 jogador.camera[1] += 0.1*(speed * delta_t);
-                jogador.pos[1] += 0.1*(speed * delta_t);
+                //jogador.pos[1] += 0.1*(speed * delta_t);
                 if(jogador.camera[1]>=jogador.pos[1]+1.4f)
                     shake_cima = false;
             }
@@ -1204,21 +992,23 @@ int main(int argc, char* argv[])
         // Gravidade (reduz a velocidade em Y gradualmente com o tempo até chegar no chão
         if (jogador.aabb.EstaColidindoComPlano(chao))
             Yspeed = 0.0f;
-        else for(int i=0; i<cenario.size(); i++)
-            if (jogador.aabb.EstaColidindoComAABB(carro.aabb))
+        else
+            Yspeed -= gravity * delta_t;
+        /*else for(int i=0; i<cenario.size(); i++)
+            if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
                     Yspeed = 0.0f;
                 else
                     Yspeed -= gravity * delta_t;
-
+*/
 
         // Pulo (faz com que a velocidade em Y seja a velocidade base)
         if (tecla_SPACE_pressionada)
             if(jogador.aabb.EstaColidindoComPlano(chao))
                 Yspeed = speed_base;
-           /* else
+            else
                 for(int i=0; i<cenario.size(); i++)
                     if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
-                        Yspeed = speed_base;*/
+                        Yspeed = speed_base;
 
         // jogador.bounding_sphere.VaiColidirComAABB(cenario[i], (jogador.bounding_sphere.center-ipis))==-1)
 
@@ -1226,8 +1016,11 @@ int main(int argc, char* argv[])
         jogador.pos[1] += Yspeed*delta_t;
 
         // Ligar/Desligar lanterna
-        if(tecla_F_pressionada)
+        if(tecla_F_pressionada){
             lanterna_ligada = false;
+            std::cout << "Player Position: (" << jogador.pos[0] << ", " << jogador.pos[1] << ", " << -jogador.pos[2] << ")" << std::endl;
+        }
+
         else
             lanterna_ligada = true;
 
@@ -1286,13 +1079,18 @@ int main(int argc, char* argv[])
                         ammo[bala_atual].pos = jogador.camera-vw*0.05f+vu*0.06f;
                         ammo[bala_atual].orientacao = normalize((ammo[bala_atual].pos-vu*0.0605f) - jogador.camera);
                         ammo[bala_atual].rotacao = atan2(ammo[bala_atual].orientacao.x, ammo[bala_atual].orientacao.z);
+
+
                         cooldown_tiro = 0.0f;
                         bala_atual=++bala_atual%N_AMMO;
+                        std::cout << "Bala atual: " << bala_atual << std::endl;
                         break;
                     }
                     else
                         bala_atual=++bala_atual%N_AMMO;
             }
+        for(int i=0; i<N_AMMO; i++)
+            std::cout << "Bala numero " << i << ": " << ammo[i].pos[0] << ", " << ammo[i].pos[1] << ", " << ammo[i].pos[2] << ")" << std::endl;
 
         if(cooldown_tiro <= 0.1)
             glUniform1i(nozzle_flash_uniform, 1);
@@ -1307,6 +1105,16 @@ int main(int argc, char* argv[])
             {
                 ammo[i].timer += delta_t;
                 ammo[i].pos += ammo[i].orientacao * 30.0f * delta_t;
+                ammo[i].aabb.minimo = glm::vec3(ammo[i].pos[0] - 0.1f, ammo[i].pos[1] - 0.1f, ammo[i].pos[2] - 0.1f);
+                ammo[i].aabb.maximo = glm::vec3(ammo[i].pos[0] + 0.1f, ammo[i].pos[1] + 0.1f, ammo[i].pos[2] + 0.1f);
+                for(int j=0; j<N_MONSTROS; j++){
+                        if (ammo[i].aabb.EstaColidindoComAABB(monstro[j].aabb))
+                                {
+                                    monstro[j].pos = {rand()%100, (rand()%10*0.1+0.1)*1.4f, rand()%100,1.0f};
+                                    ammo[i].pos = jogador.pos;
+                                }
+
+                        }
                 if(ammo[i].timer >= 1)
                     ammo[i].ativa=false;
             }
@@ -1372,6 +1180,9 @@ int main(int argc, char* argv[])
             monstro[i].rotacao = atan2(monstro[i].orientacao.x, monstro[i].orientacao.z) + PI;
             // Move o monstro em direção ao jogador
             monstro[i].pos -= monstro[i].orientacao * speed_base * delta_t * glm::vec4(1.0f,0.0f,1.0f,0.0f);
+            //colisão
+            monstro[i].aabb.minimo = glm::vec3(monstro[i].pos[0] - 0.1f,monstro[i].pos[1] - 0.3f,monstro[i].pos[2] - 0.1f);
+            monstro[i].aabb.maximo = glm::vec3(monstro[i].pos[0] + 0.1f,monstro[i].pos[1] + 0.3f,monstro[i].pos[2] + 0.1f);
         }
 
         glm::vec4 P0(10.0f, 1.0f, 0.0f, 1.0f);           // Ponto inicial
@@ -1386,6 +1197,8 @@ int main(int argc, char* argv[])
         monstro_bezier.orientacao = normalize(monstro_bezier.pos);
         monstro_bezier.rotacao = atan2(monstro_bezier.orientacao.x, monstro_bezier.orientacao.z) + 3.14f;
         monstro_bezier.pos = glm::vec4(pointOnBezierCurve);
+        monstro_bezier.aabb.minimo = glm::vec3(monstro_bezier.pos[0] - 2.0f,monstro_bezier.pos[1] - 2.0f,monstro_bezier.pos[2] - 2.0f);
+        monstro_bezier.aabb.maximo = glm::vec3(monstro_bezier.pos[0] + 2.0f,monstro_bezier.pos[1] + 2.0f,monstro_bezier.pos[2] + 2.0f);
 
 
         // ---------------------------------------------------------- CARRO -------------------------------------------------------------
