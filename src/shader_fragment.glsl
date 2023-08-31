@@ -13,6 +13,9 @@ in vec4 position_model;
 // Coordenadas de textura obtidas do arquivo OBJ (se existirem!)
 in vec2 texcoords;
 
+// usando Gouraud Shading
+in vec4 cor_tiro;
+
 // Matrizes computadas no código C++ e enviadas para a GPU
 uniform mat4 model;
 uniform mat4 view;
@@ -251,12 +254,7 @@ void main()
     }
     else if ( object_id == BULLET )
     {
-        opaco = true;
-        // Propriedades espectrais da bala
-        Kd = vec3(0.6,0.3,0.3);
-        Ks = vec3(0.9,0.5,0.5);
-        Ka = vec3(0.3,0.1,0.1);
-        q = 10.0;
+        color = cor_tiro;
     }
     else if ( object_id == SMOKE )
     {
@@ -389,8 +387,8 @@ void main()
         color.rgb = texture(lanterna, vec2(U,V)).rgb*(3*A+NF);
     else if( object_id == REVOLVER )
         color.rgb = texture(lanterna, vec2(U,V)).rgb*(3*A+NF);
-    else if( object_id == BULLET )
-        color.rgb = vec3(1.0f,1.0f,0.0f)*(A+D+S);
+    /*else if( object_id == BULLET )
+        color.rgb = vec3(1.0f,1.0f,0.0f)*(A+D+S);*/
     else if( object_id == SMOKE )
     {
         color.rgb = texture(smoke, vec2(U,V)).rgb;

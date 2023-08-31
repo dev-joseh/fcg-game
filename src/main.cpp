@@ -1111,6 +1111,7 @@ int main(int argc, char* argv[])
                         if (ammo[i].aabb.EstaColidindoComAABB(monstro[j].aabb)){
                             monstro[j].pos = {rand()%100, (rand()%10*0.1+0.1)*1.4f, rand()%100,1.0f};
                             ammo[i].pos = jogador.pos;
+                            ammo[i].orientacao = jogador.pos;
                         }
                     }
                 if(ammo[i].timer >= 1)
