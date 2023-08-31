@@ -897,7 +897,7 @@ int main(int argc, char* argv[])
         jogador.aabb = AABB(glm::vec3(jogador.pos[0]-0.34f, jogador.pos[1], jogador.pos[2]-0.34f), glm::vec3(jogador.pos[0]+0.34f,jogador.pos[1]+1.4f,jogador.pos[2]+0.34f));
         jogador.bounding_sphere = Esfera(glm::vec4(jogador.pos[0],jogador.pos[1]+0.1f,jogador.pos[2], 1.0f), 0.35f);
         carro.aabb = AABB(glm::vec3(carro.pos[0]-1.00f, carro.pos[1], carro.pos[2]-2.5f), glm::vec3(carro.pos[0]+1.0f,carro.pos[1]+0.2f,carro.pos[2]+2.5f));
-        glm::vec3 bbox_min = glm::vec3(carro.pos[0] - 1.00f, carro.pos[1] -5.0, carro.pos[2] - 2.5f);
+        /*glm::vec3 bbox_min = glm::vec3(carro.pos[0] - 1.00f, carro.pos[1] -5.0, carro.pos[2] - 2.5f);
         glm::vec3 bbox_max = glm::vec3(carro.pos[0] + 1.0f, carro.pos[1] +5.0f, carro.pos[2] + 2.5f);
         glm::vec3 bbox_center = glm::vec3(carro.pos[0], carro.pos[1], carro.pos[2]);
 
@@ -915,7 +915,7 @@ int main(int argc, char* argv[])
             for (int i = 0; i < 6; ++i) {
                 normaisDosLadosDoCubo.push_back(normals[i]);
             }
-
+*/
 
 
         // Faz o jogador correr quando pressiona SHIFT e não está recarregando
@@ -1098,7 +1098,7 @@ int main(int argc, char* argv[])
             glUniform1i(nozzle_flash_uniform, 0);
 
         // Para cada bala, testa se está ativa, se sim, incrementa seu timer e sua posicao e testa se seu tempo de atividade expirou, se estiver inativa, reseta seus
-        // parâmetros
+        // parâmetros, testando a colisão com os monstros
         for(int i=0; i<N_AMMO; i++)
         {
             if(ammo[i].ativa == true)
@@ -1108,13 +1108,11 @@ int main(int argc, char* argv[])
                 ammo[i].aabb.minimo = glm::vec3(ammo[i].pos[0] - 0.1f, ammo[i].pos[1] - 0.1f, ammo[i].pos[2] - 0.1f);
                 ammo[i].aabb.maximo = glm::vec3(ammo[i].pos[0] + 0.1f, ammo[i].pos[1] + 0.1f, ammo[i].pos[2] + 0.1f);
                 for(int j=0; j<N_MONSTROS; j++){
-                        if (ammo[i].aabb.EstaColidindoComAABB(monstro[j].aabb))
-                                {
-                                    monstro[j].pos = {rand()%100, (rand()%10*0.1+0.1)*1.4f, rand()%100,1.0f};
-                                    ammo[i].pos = jogador.pos;
-                                }
-
+                        if (ammo[i].aabb.EstaColidindoComAABB(monstro[j].aabb)){
+                            monstro[j].pos = {rand()%100, (rand()%10*0.1+0.1)*1.4f, rand()%100,1.0f};
+                            ammo[i].pos = jogador.pos;
                         }
+                    }
                 if(ammo[i].timer >= 1)
                     ammo[i].ativa=false;
             }
@@ -1183,6 +1181,10 @@ int main(int argc, char* argv[])
             //colisão
             monstro[i].aabb.minimo = glm::vec3(monstro[i].pos[0] - 0.1f,monstro[i].pos[1] - 0.3f,monstro[i].pos[2] - 0.1f);
             monstro[i].aabb.maximo = glm::vec3(monstro[i].pos[0] + 0.1f,monstro[i].pos[1] + 0.3f,monstro[i].pos[2] + 0.1f);
+            if (monstro[i].aabb.EstaColidindoComAABB(jogador.aabb)){
+                jogador.vidas--;
+                monstro[i].pos = {rand()%100, (rand()%10*0.1+0.1)*1.4f, rand()%100,1.0f};
+            }
         }
 
         glm::vec4 P0(10.0f, 1.0f, 0.0f, 1.0f);           // Ponto inicial
@@ -1197,8 +1199,8 @@ int main(int argc, char* argv[])
         monstro_bezier.orientacao = normalize(monstro_bezier.pos);
         monstro_bezier.rotacao = atan2(monstro_bezier.orientacao.x, monstro_bezier.orientacao.z) + 3.14f;
         monstro_bezier.pos = glm::vec4(pointOnBezierCurve);
-        monstro_bezier.aabb.minimo = glm::vec3(monstro_bezier.pos[0] - 2.0f,monstro_bezier.pos[1] - 2.0f,monstro_bezier.pos[2] - 2.0f);
-        monstro_bezier.aabb.maximo = glm::vec3(monstro_bezier.pos[0] + 2.0f,monstro_bezier.pos[1] + 2.0f,monstro_bezier.pos[2] + 2.0f);
+        monstro_bezier.aabb.minimo = glm::vec3(monstro_bezier.pos[0] - 0.3f,monstro_bezier.pos[1] - 0.3f,monstro_bezier.pos[2] - 0.3f);
+        monstro_bezier.aabb.maximo = glm::vec3(monstro_bezier.pos[0] + 0.3f,monstro_bezier.pos[1] + 0.3f,monstro_bezier.pos[2] + 0.3f);
 
 
         // ---------------------------------------------------------- CARRO -------------------------------------------------------------
