@@ -246,16 +246,6 @@ glm::vec4 calculateBezierPoint(const glm::vec4& P0, const glm::vec4& P1, const g
 
 // Definimos uma estrutura que armazenará dados necessários para renderizar
 // cada objeto da cena virtual.
-/*struct SceneObject
-{
-    std::string  name;        // Nome do objeto
-    size_t       first_index; // Índice do primeiro vértice dentro do vetor indices[] definido em BuildTrianglesAndAddToVirtualScene()
-    size_t       num_indices; // Número de índices do objeto dentro do vetor indices[] definido em BuildTrianglesAndAddToVirtualScene()
-    GLenum       rendering_mode; // Modo de rasterização (GL_TRIANGLES, GL_TRIANGLE_STRIP, etc.)
-    GLuint       vertex_array_object_id; // ID do VAO onde estão armazenados os atributos do modelo
-    glm::vec3    bbox_min; // Axis-Aligned Bounding Box do objeto
-    glm::vec3    bbox_max;
-};*/
 
 // Abaixo definimos variáveis globais utilizadas em várias funções do código.
 
@@ -312,6 +302,23 @@ float g_Phi = PI / 6;
 double g_LastCursorPosX, g_LastCursorPosY;
 // Usada para verificar se o mouse está centralizado.
 bool cursorCentered;
+bool ColisaoComCenario(const glm::vec4& novaPosicao, const std::vector<AABB>& cenario) {
+    // Verifique a colisão com cada objeto do cenário
+    for (const AABB& objeto : cenario) {
+        if (novaPosicao.x > objeto.minimo.x && novaPosicao.x < objeto.maximo.x &&
+            novaPosicao.y > objeto.minimo.y && novaPosicao.y < objeto.maximo.y &&
+            novaPosicao.z > objeto.minimo.z && novaPosicao.z < objeto.maximo.z) {
+            return true;  // Colisão detectada
+        }
+    }
+
+    return false;  // Sem colisão com o cenário
+}
+
+glm::vec3 CalcularNormalColisao(const glm::vec4& posicaoAtual, const glm::vec4& novaPosicao) {
+    glm::vec3 normal = glm::normalize(glm::vec3(novaPosicao - posicaoAtual));
+    return normal;
+}
 
 // Outras variáveis
 bool jogador_andando;
@@ -320,6 +327,7 @@ bool lanterna_ligada;
 int bala_atual=0;
 bool reload_active = false;
 bool jogador_proximo_do_carro;
+float incremento_alpha = 0;
 
 // Variáveis que controlam rotação do antebraço
 float g_ForearmAngleZ = 0.0f;
@@ -350,6 +358,7 @@ GLint nozzle_flash_uniform;
 GLint tronco_uniform;
 GLint parte_carro_uniform;
 GLint tela_de_menu_uniform;
+GLint alpha_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
@@ -610,7 +619,7 @@ int main(int argc, char* argv[])
     std::vector<AABB> cenario;
 
     // Carro
-    //cenario.push_back(AABB(glm::vec3(5.0f, 0.0f, -2.5f), glm::vec3(7.0f, 2.0f, 2.75f)));
+    cenario.push_back(AABB(glm::vec3(5.0f, 0.0f, -2.5f), glm::vec3(7.0f, 2.0f, 2.75f)));
     //cenario.push_back(BoundingBoxIntersection(g_VirtualScene["Plaque"], g_VirtualScene["the_sphere"])))
     // Casa chão
     //cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.3f), glm::vec3(3.3f, 0.65f, 3.3f)));
@@ -897,26 +906,6 @@ int main(int argc, char* argv[])
         jogador.aabb = AABB(glm::vec3(jogador.pos[0]-0.34f, jogador.pos[1], jogador.pos[2]-0.34f), glm::vec3(jogador.pos[0]+0.34f,jogador.pos[1]+1.4f,jogador.pos[2]+0.34f));
         jogador.bounding_sphere = Esfera(glm::vec4(jogador.pos[0],jogador.pos[1]+0.1f,jogador.pos[2], 1.0f), 0.35f);
         carro.aabb = AABB(glm::vec3(carro.pos[0]-1.00f, carro.pos[1], carro.pos[2]-2.5f), glm::vec3(carro.pos[0]+1.0f,carro.pos[1]+0.2f,carro.pos[2]+2.5f));
-        /*glm::vec3 bbox_min = glm::vec3(carro.pos[0] - 1.00f, carro.pos[1] -5.0, carro.pos[2] - 2.5f);
-        glm::vec3 bbox_max = glm::vec3(carro.pos[0] + 1.0f, carro.pos[1] +5.0f, carro.pos[2] + 2.5f);
-        glm::vec3 bbox_center = glm::vec3(carro.pos[0], carro.pos[1], carro.pos[2]);
-
-        glm::vec3 x_normal = glm::normalize(glm::vec3(1.0f, 0.0f, 0.0f));
-        glm::vec3 y_normal = glm::normalize(glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::vec3 z_normal = glm::normalize(glm::vec3(0.0f, 0.0f, 1.0f));
-
-        glm::vec3 normals[6] = {
-            (bbox_center - bbox_min).x < (bbox_max - bbox_center).x ? x_normal : -x_normal,
-            (bbox_center - bbox_min).z < (bbox_max - bbox_center).z ? z_normal : -z_normal,
-            (bbox_center - bbox_max).x < (bbox_min - bbox_center).x ? x_normal : -x_normal,
-            (bbox_center - bbox_max).z < (bbox_min - bbox_center).z ? z_normal : -z_normal
-        };
-        std::vector<glm::vec3> normaisDosLadosDoCubo;
-            for (int i = 0; i < 6; ++i) {
-                normaisDosLadosDoCubo.push_back(normals[i]);
-            }
-*/
-
 
         // Faz o jogador correr quando pressiona SHIFT e não está recarregando
         speed = speed_base;
@@ -925,15 +914,6 @@ int main(int argc, char* argv[])
             speed = speed_base*2;
         }
         glm::vec4 movimentacao = glm::vec4(1.0f,.0f,1.0f,0.0f); // Valor de movimentação padrão, quando não há obstáculos
-        //glm::vec4 movimentacao_invertida = glm::vec4(-1.0f, 0.0f, -1.0f, 0.0f);
-        /*const SceneObject& personagem = g_VirtualScene["the_sphere"];
-        const glm::vec3 bboxMin = personagem.bbox_min;
-        const glm::vec3 bboxMax = personagem.bbox_max;
-
-        std::cout << "Object Name: " << "Plaque" << std::endl;
-        std::cout << "Bounding Box Min: (" << bboxMin.x << ", " << bboxMin.y << ", " << bboxMin.z << ")" << std::endl;
-        std::cout << "Bounding Box Max: (" << bboxMax.x << ", " << bboxMax.y << ", " << bboxMax.z << ")" << std::endl;
-        std::cout << "Posicao do jogador: (" << jogador.pos.x << ", " << jogador.pos.y << ", " << jogador.pos.z << ")" << std::endl;*/
 
         if (tecla_W_pressionada){
             jogador.pos += - vw * (speed * delta_t) * movimentacao;
@@ -950,6 +930,8 @@ int main(int argc, char* argv[])
         if (tecla_A_pressionada){
             jogador.pos += -vu * (speed * delta_t) * movimentacao;
         }
+
+
 
         // Prende o jogador em um 'loop' dentro da área de jogo, caso ele se afaste demais da cabine
         if ( sqrt(pow(jogador.pos[0],2)+pow(jogador.pos[2],2)) >= ARVORES_DIST + 27.0f)
@@ -1005,11 +987,11 @@ int main(int argc, char* argv[])
         if (tecla_SPACE_pressionada)
             if(jogador.aabb.EstaColidindoComPlano(chao))
                 Yspeed = speed_base;
-            else
+            /*else
                 for(int i=0; i<cenario.size(); i++)
                     if (jogador.aabb.EstaColidindoComAABB(cenario[i]))
                         Yspeed = speed_base;
-
+*/
         // jogador.bounding_sphere.VaiColidirComAABB(cenario[i], (jogador.bounding_sphere.center-ipis))==-1)
 
         // Velocidade no eixo Y
@@ -1018,7 +1000,7 @@ int main(int argc, char* argv[])
         // Ligar/Desligar lanterna
         if(tecla_F_pressionada){
             lanterna_ligada = false;
-            std::cout << "Player Position: (" << jogador.pos[0] << ", " << jogador.pos[1] << ", " << -jogador.pos[2] << ")" << std::endl;
+            //std::cout << "Player Position: (" << jogador.pos[0] << ", " << jogador.pos[1] << ", " << -jogador.pos[2] << ")" << std::endl;
         }
 
         else
@@ -1083,7 +1065,6 @@ int main(int argc, char* argv[])
 
                         cooldown_tiro = 0.0f;
                         bala_atual=++bala_atual%N_AMMO;
-                        std::cout << "Bala atual: " << bala_atual << std::endl;
                         break;
                     }
                     else
@@ -1459,6 +1440,8 @@ int main(int argc, char* argv[])
         DrawVirtualObject("the_screen");
         glEnable(GL_DEPTH_TEST);
 
+
+
         // Desenhamos uma instrução para o jogador se ele estiver próximo do carro
         if(jogador_proximo_do_carro)
             TextRendering_ShowCarTip(window, carro.estado);
@@ -1612,6 +1595,7 @@ int main(int argc, char* argv[])
             #define CARRO  11
             #define TELA_FINAL 12
 
+
             // SPHERE
             glDisable(GL_DEPTH_TEST);
             glDisable(GL_CULL_FACE);
@@ -1679,6 +1663,8 @@ int main(int argc, char* argv[])
             DrawVirtualObject("Tire1");
             DrawVirtualObject("Tire2");
             DrawVirtualObject("Tire3");
+
+
 
 
             // ARVORES
@@ -1769,7 +1755,23 @@ int main(int argc, char* argv[])
             DrawVirtualObject("Barrel");
 
 
+            //Tela final
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_CULL_FACE);
 
+            glUniform1i(alpha_uniform, incremento_alpha);
+            model = Matrix_Translate(lanterna_pos[0], lanterna_pos[1], lanterna_pos[2]);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, TELA_FINAL);
+            DrawVirtualObject("tela_fim_de_jogo");
+            glEnable(GL_CULL_FACE);
+            glEnable(GL_DEPTH_TEST);
+            incremento_alpha = incremento_alpha + 1;
+            std::cout << incremento_alpha << std::endl;
+
+
+
+/*
             // Texto da tela de fim de jogo
             TextRendering_Menu(window, i);
             i++;
@@ -1789,7 +1791,7 @@ int main(int argc, char* argv[])
             TextRendering_ShowFramesPerSecond(window);
 
             // Imprimimos na tela quandos segundos se passaram desde o início
-            TextRendering_ShowSecondsEllapsed(window);
+            TextRendering_ShowSecondsEllapsed(window);*/
 
             // O framebuffer onde OpenGL executa as operações de renderização não
             // é o mesmo que está sendo mostrado para o usuário, caso contrário
@@ -1972,6 +1974,7 @@ void LoadShadersFromFiles()
     tronco_uniform = glGetUniformLocation(g_GpuProgramID, "tronco"); // Variável usada para dizer se é para desenhar o tronco ou as folhas da árvore
     parte_carro_uniform = glGetUniformLocation(g_GpuProgramID, "parte_carro"); // Variável usada para definir a textura de cada parte do carro
     tela_de_menu_uniform = glGetUniformLocation(g_GpuProgramID, "tela_de_menu"); // Variável usada para indicar quando está no menu
+    alpha_uniform = glGetUniformLocation(g_GpuProgramID, "alpha");
 
     // Variáveis em "shader_fragment.glsl" para acesso das imagens de textura
     glUseProgram(g_GpuProgramID);

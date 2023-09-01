@@ -10,6 +10,9 @@
 #include <cstdlib>
 
 
+
+
+
 struct Plano {
     glm::vec3 normal; // Vetor normal ao plano
     glm::vec3 point;  // Ponto pertencente ao plano

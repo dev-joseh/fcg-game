@@ -86,8 +86,8 @@ bool opaco=false;
 uniform bool tronco;
 uniform int parte_carro;
 uniform bool tela_de_menu;
-
-uniform float alpha; // alpha da tela final q vai ficando deixando a tela escura aos poucos
+uniform int alpha; // alpha da tela final q vai ficando deixando a tela escura aos poucos
+float alpha_float;
 
 // Constantes
 #define M_PI   3.14159265358979323846
@@ -417,7 +417,8 @@ void main()
     else if ( object_id == TELA_FINAL)
     {
         color.rgb = texture(tela_fim_de_jogo, vec2(U,V)).rgb;
-        color.a = 0.2;
+        alpha_float = float(alpha*0.002);
+        color.a = alpha_float;
 
     }
 
