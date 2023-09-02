@@ -1071,8 +1071,6 @@ int main(int argc, char* argv[])
                     else
                         bala_atual=++bala_atual%N_AMMO;
             }
-        for(int i=0; i<N_AMMO; i++)
-            std::cout << "Bala numero " << i << ": " << ammo[i].pos[0] << ", " << ammo[i].pos[1] << ", " << ammo[i].pos[2] << ")" << std::endl;
 
         if(cooldown_tiro <= 0.1)
             glUniform1i(nozzle_flash_uniform, 1);
