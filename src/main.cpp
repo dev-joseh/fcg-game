@@ -850,7 +850,7 @@ int main(int argc, char* argv[])
         // =========================================== GAMEPLAY ===========================================
         while (sair_menu && !glfwWindowShouldClose(window)){
 
-        if (tecla_K_pressionada){
+        if (jogador.vidas == 0 || tecla_K_pressionada || carro.estado >= 100 ){
             fim_de_jogo = true;
             break;
         }
@@ -1195,7 +1195,7 @@ int main(int argc, char* argv[])
             jogador_proximo_do_carro = false;
 
         if(jogador_proximo_do_carro && tecla_E_pressionada)
-            carro.estado += speed_base * 0.2 * delta_t;
+            carro.estado += speed_base * 0.4 * delta_t;
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para definir o sistema de coordenadas da câmera.
         glm::mat4 view = Matrix_Camera_View(jogador.camera, camera_view_vector, vv);
