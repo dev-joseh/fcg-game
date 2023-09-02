@@ -35,6 +35,7 @@ uniform mat4 projection;
 #define CABINE 10
 #define CARRO 11
 #define TELA_FINAL 12
+#define TELA_FINAL2 13
 
 uniform int object_id;
 
@@ -61,6 +62,7 @@ uniform sampler2D car_Plaque;
 uniform sampler2D car_Logo;
 uniform sampler2D car_Tire;
 uniform sampler2D tela_fim_de_jogo;
+uniform sampler2D tela_game_over;
 
 
 // Mapa de normais
@@ -310,6 +312,12 @@ void main()
         V = texcoords.y;
     }
 
+    else if ( object_id == TELA_FINAL2)
+    {
+        U = texcoords.x;
+        V = texcoords.y;
+    }
+
     // Espectro da fonte de iluminação
     vec3 I = vec3(1.0,1.0,1.0); // Espectro da fonte de luz
 
@@ -417,6 +425,14 @@ void main()
     else if ( object_id == TELA_FINAL)
     {
         color.rgb = texture(tela_fim_de_jogo, vec2(U,V)).rgb;
+        alpha_float = float(alpha*0.002);
+        color.a = alpha_float;
+
+    }
+
+    else if ( object_id == TELA_FINAL2)
+    {
+        color.rgb = texture(tela_game_over, vec2(U,V)).rgb;
         alpha_float = float(alpha*0.002);
         color.a = alpha_float;
 

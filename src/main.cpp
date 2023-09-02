@@ -473,6 +473,7 @@ int main(int argc, char* argv[])
 
     // Tela de fim de jogo
     LoadTextureImage("../../data/Textures/tela_fim_de_jogo.png");             // tela final
+    LoadTextureImage("../../data/Textures/tela_game_over.png");
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/Objects/sphere.obj");
@@ -1246,6 +1247,7 @@ int main(int argc, char* argv[])
         #define CABINE  10
         #define CARRO  11
         #define TELA_FINAL 12
+        #define TELA_FINAL2 13
 
         // SPHERE
         glDisable(GL_DEPTH_TEST);
@@ -1594,6 +1596,7 @@ int main(int argc, char* argv[])
             #define CABINE  10
             #define CARRO  11
             #define TELA_FINAL 12
+            #define TELA_FINAL2 13
 
 
             // SPHERE
@@ -1758,16 +1761,22 @@ int main(int argc, char* argv[])
             //Tela final
             glDisable(GL_DEPTH_TEST);
             glDisable(GL_CULL_FACE);
-
             glUniform1i(alpha_uniform, incremento_alpha);
             model = Matrix_Translate(lanterna_pos[0], lanterna_pos[1], lanterna_pos[2]);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-            glUniform1i(g_object_id_uniform, TELA_FINAL);
-            DrawVirtualObject("tela_fim_de_jogo");
+            if (jogador.vidas > 0){
+                glUniform1i(g_object_id_uniform, TELA_FINAL);
+                DrawVirtualObject("tela_fim_de_jogo");
+            }
+            else {
+                glUniform1i(g_object_id_uniform, TELA_FINAL2);
+                DrawVirtualObject("tela_fim_de_jogo");
+
+            }
+
             glEnable(GL_CULL_FACE);
             glEnable(GL_DEPTH_TEST);
             incremento_alpha = incremento_alpha + 1;
-            std::cout << incremento_alpha << std::endl;
 
 
 
@@ -2000,6 +2009,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_Logo"), 19);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "car_Tire"), 20);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "tela_fim_de_jogo"), 21);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "tela_game_over"), 22);
 
     glUseProgram(0);
 }
