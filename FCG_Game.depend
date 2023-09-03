@@ -989,7 +989,7 @@
 	<inttypes.h>
 	<stdint.h>
 
-1693714794 source:c:\users\pichau\desktop\fcg-game\src\main.cpp
+1693717190 source:c:\users\pichau\desktop\fcg-game\src\main.cpp
 	<iostream>
 	<cmath>
 	<cstdio>
@@ -1896,29 +1896,13 @@
 	<glm/vec4.hpp>
 	<glm/gtc/matrix_transform.hpp>
 
-1693698736 c:\users\pichau\desktop\fcg-game\src\collisions.cpp
-	<iostream>
-	<cmath>
-	<cstdio>
-	<cstdlib>
-	<stdlib.h>
-	<time.h>
-	<map>
-	<stack>
-	<string>
-	<vector>
-	<limits>
-	<fstream>
-	<sstream>
-	<stdexcept>
-	<algorithm>
-	<glad/glad.h>
-	<GLFW/glfw3.h>
+1693717375 c:\users\pichau\desktop\fcg-game\src\collisions.cpp
 	<glm/mat4x4.hpp>
 	<glm/vec4.hpp>
 	<glm/gtc/type_ptr.hpp>
-	<tiny_obj_loader.h>
-	<stb_image.h>
+	<cmath>
+	<cstdio>
+	<cstdlib>
 
 1692324805 source:c:\users\pichau\desktop\fcg-game\src\stb_image.cpp
 	"stb_image.h"
