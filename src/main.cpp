@@ -556,7 +556,8 @@ int main(int argc, char* argv[])
 
     // Definimos a posição inicial do jogador, da câmera e a quantidade de vidas e munições
     JOGADOR jogador;
-    jogador.pos = glm::vec4(-2.0f, 1.0f, 0.0f, 1.0f);
+    jogador.pos = glm::vec4(-1.0f, 1.0f, 0.0f, 1.0f);
+
     jogador.camera = glm::vec4(0.0f, 2.4f, 0.0f, 1.0f);
     jogador.ammo = 6;
     jogador.vidas = 3;
@@ -564,6 +565,7 @@ int main(int argc, char* argv[])
     // Definimos o plano do chão para os testes de colisão
                // Seu vetor normal          // Sua posição
     Plano chao(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+
 
    /* for (const auto& entry : g_VirtualScene) {
         const std::string& objectName = entry.first;
@@ -606,6 +608,11 @@ int main(int argc, char* argv[])
     float recoil = 0.0f;        // Movimento do revolver durante o recuo do tiro
     bool recoil_active = false;
 
+
+    //glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
+    // Cenário AABBs
+    std::vector<AABB> cenario;
+    //glm::vec4 auxiliar = glm::vec4(1,1,1,1);
     // Árvores
     // Desenhamos as árvores em um círculo com raio = ARVORES_DIST ao redor da cabine e do carro
     ARVORE arvores[NUM_ARVORES];
@@ -613,32 +620,40 @@ int main(int argc, char* argv[])
     {
         float angulo=i*(2*PI/NUM_ARVORES);
         arvores[i].pos = glm::vec4(cos(angulo)*ARVORES_DIST, 0.0f, sin(angulo)*ARVORES_DIST, 1.0f);
-        arvores[i].rotacao = rand()%6*(2*PI/6);
+        arvores[i].rotacao = rand()%6*(2*PI/6); //
+        arvores[i].aabb.minimo =  glm::vec3(arvores[i].pos[0] -0.5f, 0, arvores[i].pos[2] -0.3f);
+        arvores[i].aabb.maximo =  glm::vec3(arvores[i].pos[0] +0.5f, 2, arvores[i].pos[2] +0.3f);
+
+
+        //auxiliar = arvores[i].pos;//arvores[i].pos*Matrix_Rotate_Y(arvores[i].rotacao);
+        //auxiliar = arvores[i].pos;
+        //glm::vec4 auxiliar2 = model * auxiliar;
+        //cenario.push_back(arvores[i].aabb);
+        //cenario.push_back(AABB(glm::vec3(auxiliar2[0] -1.4f, 0, auxiliar2[2] -0.4f), glm::vec3(auxiliar2[0] +0.4f, 3, auxiliar2[2] +0.4f)));
+        //std::cout << "Arvore numero " << i << ": (" <<auxiliar2[0] << ", " << auxiliar2[1] << ", " <<auxiliar2[2] << ", "<< auxiliar2[3] << ") " <<"Rotacao = "<<arvores[i].rotacao<< std::endl;
+
     }
 
-    // Cenário AABBs
-    std::vector<AABB> cenario;
+    //jogador.pos = arvores[0].pos;
 
     // Carro
-    cenario.push_back(AABB(glm::vec3(5.0f, 0.0f, -2.5f), glm::vec3(7.0f, 2.0f, 2.75f)));
-    //cenario.push_back(BoundingBoxIntersection(g_VirtualScene["Plaque"], g_VirtualScene["the_sphere"])))
-    // Casa chão
-    //cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.3f), glm::vec3(3.3f, 0.65f, 3.3f)));
-    // Casa parede sul
-    //cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.3f), glm::vec3(3.0f, 5.0f, -2.95f)));
-    // Casa parede leste
-    //cenario.push_back(AABB(glm::vec3(-2.9f, 0.0f, -3.0f), glm::vec3(-2.0f, 4.0f, 3.0f)));
-    /*
-    // Casa parede oeste
-    cenario.push_back(AABB(glm::vec3(-3.0f, 0.0f, -3.0f), glm::vec3(3.0f, 0.65f, 3.0f)));
+    cenario.push_back(AABB(glm::vec3(5.0f, 0.0f, -2.5f), glm::vec3(7.0f, 1.0f, 2.75f)));
+    // Casa parede direita >
+    cenario.push_back(AABB(glm::vec3(-2.4f, 0, -3.6f), glm::vec3(-2.04f, 2.0f, 3.45f)));
+    // Casa parede sul V
+    cenario.push_back(AABB(glm::vec3(-2.4f, 0, -3.6f), glm::vec3(2.3f, 2.0f, -2.95f)));
+    // Casa parede esquerda <
+    cenario.push_back(AABB(glm::vec3(2.1f, 0, -3.43f), glm::vec3(2.65f, 2.0f, 3.46f)));
+    // Casa parede norte ^ parte 1
+    cenario.push_back(AABB(glm::vec3(-2.02f, 0, 3.16f), glm::vec3(-1.3f, 2.0f, 3.5f)));
+    // Casa parede norte ^ parte 2
+    cenario.push_back(AABB(glm::vec3(-0.16f, 0, 3.16f), glm::vec3(2.3f, 2.0f, 3.5f)));
+    // Degrau da casa
+    cenario.push_back(AABB(glm::vec3(-1.3f, 0, 3.16f), glm::vec3(-0.16f, 0.3f, 3.5f)));
 
-    // Casa parede norte/esquerda da porta
-    cenario[NUM_ARVORES+5] =
-    // Casa parede norte/direita da porta
-    cenario[NUM_ARVORES+6] =
-    // Casa escadaria
-    cenario[NUM_ARVORES+7] =
-    */
+
+    AABB chao_casa(glm::vec3(-2.4f, 0, -3.6f), glm::vec3(2.6f, 0.4f, 3.5f));
+    AABB telhado_carro(glm::vec3(4.9f, 0, -3.3f), glm::vec3(6.9f, 1.2f, 3.0f));
 
     // Definimos variáveis de partícula
     #define SMOKE_P_COUNT 6
@@ -664,19 +679,6 @@ int main(int argc, char* argv[])
 
     //Variaveis de fim de jogo
     bool fim_de_jogo = false;
-
-    for (const auto& entry : g_VirtualScene) {
-        const std::string& objectName = entry.first; // Chave (nome do objeto)
-        const SceneObject& sceneObj = entry.second;  // Valor (estrutura SceneObject)
-
-        const glm::vec3& bboxMin = sceneObj.bbox_min;
-        const glm::vec3& bboxMax = sceneObj.bbox_max;
-
-        std::cout << "Object Name: " << objectName << std::endl;
-        std::cout << "Bounding Box Min: (" << bboxMin.x << ", " << bboxMin.y << ", " << bboxMin.z << ")" << std::endl;
-        std::cout << "Bounding Box Max: (" << bboxMax.x << ", " << bboxMax.y << ", " << bboxMax.z << ")" << std::endl;
-}
-
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -818,6 +820,7 @@ int main(int argc, char* argv[])
             model = Matrix_Translate(arvores[i].pos.x,0.0f,arvores[i].pos.z)
                   * Matrix_Scale(1.0f,1.0f,1.0f)
                   * Matrix_Rotate_Y(arvores[i].rotacao);
+            //std::cout << glm::value_ptr(model) << std::endl;
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, ARVORE);
             glUniform1i(tronco_uniform, true);
@@ -917,20 +920,46 @@ int main(int argc, char* argv[])
         glm::vec4 movimentacao = glm::vec4(1.0f,.0f,1.0f,0.0f); // Valor de movimentação padrão, quando não há obstáculos
 
         if (tecla_W_pressionada){
-            jogador.pos += - vw * (speed * delta_t) * movimentacao;
+            if (ColisaoComCenario(jogador.pos + (- vw * (speed * delta_t) * movimentacao), cenario)){
+                jogador.pos -= - vw * (speed * delta_t) * movimentacao;
+            }
+            else {
+                jogador.pos += - vw * (speed * delta_t) * movimentacao;
+            }
+
         }
 
         if (tecla_S_pressionada){
-            jogador.pos += vw * (speed * delta_t) * movimentacao;
+            if (ColisaoComCenario(jogador.pos + (vw * (speed * delta_t) * movimentacao), cenario)){
+                jogador.pos -= vw * (speed * delta_t) * movimentacao;
+            }
+            else {
+                jogador.pos += vw * (speed * delta_t) * movimentacao;
+            }
+
         }
 
         if (tecla_D_pressionada){
-            jogador.pos += vu * (speed * delta_t) * movimentacao;
+            if (ColisaoComCenario(jogador.pos + (vu * (speed * delta_t)), cenario)){
+                jogador.pos -= vu * (speed * delta_t) * movimentacao;
+            }
+            else {
+                jogador.pos += vu * (speed * delta_t) * movimentacao;
+            }
+
         }
 
         if (tecla_A_pressionada){
-            jogador.pos += -vu * (speed * delta_t) * movimentacao;
+            if (ColisaoComCenario(jogador.pos + (-vu * (speed * delta_t)), cenario)){
+                jogador.pos -= -vu * (speed * delta_t) * movimentacao;
+            }
+            else {
+                jogador.pos += -vu * (speed * delta_t) * movimentacao;
+            }
+
         }
+
+
 
 
 
@@ -973,7 +1002,7 @@ int main(int argc, char* argv[])
 
         glm::vec4 ipis = glm::vec4(0.0f,0.0f,0.0f,1.0f);
         // Gravidade (reduz a velocidade em Y gradualmente com o tempo até chegar no chão
-        if (jogador.aabb.EstaColidindoComPlano(chao))
+        if (jogador.aabb.EstaColidindoComPlano(chao) || jogador.aabb.EstaColidindoComAABB(chao_casa) || jogador.aabb.EstaColidindoComAABB(telhado_carro))
             Yspeed = 0.0f;
         else
             Yspeed -= gravity * delta_t;
@@ -986,7 +1015,7 @@ int main(int argc, char* argv[])
 
         // Pulo (faz com que a velocidade em Y seja a velocidade base)
         if (tecla_SPACE_pressionada)
-            if(jogador.aabb.EstaColidindoComPlano(chao))
+            if(jogador.aabb.EstaColidindoComPlano(chao) || jogador.aabb.EstaColidindoComAABB(chao_casa) || jogador.aabb.EstaColidindoComAABB(telhado_carro))
                 Yspeed = speed_base;
             /*else
                 for(int i=0; i<cenario.size(); i++)
@@ -1001,7 +1030,7 @@ int main(int argc, char* argv[])
         // Ligar/Desligar lanterna
         if(tecla_F_pressionada){
             lanterna_ligada = false;
-            //std::cout << "Player Position: (" << jogador.pos[0] << ", " << jogador.pos[1] << ", " << -jogador.pos[2] << ")" << std::endl;
+            //std::cout << "Player Position: (" << jogador.pos[0] << ", " << jogador.pos[1] << ", " << jogador.pos[2] << ")" << std::endl;
         }
 
         else
@@ -1182,6 +1211,9 @@ int main(int argc, char* argv[])
         monstro_bezier.pos = glm::vec4(pointOnBezierCurve);
         monstro_bezier.aabb.minimo = glm::vec3(monstro_bezier.pos[0] - 0.3f,monstro_bezier.pos[1] - 0.3f,monstro_bezier.pos[2] - 0.3f);
         monstro_bezier.aabb.maximo = glm::vec3(monstro_bezier.pos[0] + 0.3f,monstro_bezier.pos[1] + 0.3f,monstro_bezier.pos[2] + 0.3f);
+        if (monstro_bezier.aabb.EstaColidindoComAABB(jogador.aabb)){
+                jogador.vidas--;
+            }
 
 
         // ---------------------------------------------------------- CARRO -------------------------------------------------------------
