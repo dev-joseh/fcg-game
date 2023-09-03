@@ -611,7 +611,7 @@ int main(int argc, char* argv[])
     bool recoil_active = false;
 
 
-    glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
+
     // Cenário AABBs
     std::vector<AABB> cenario;
     glm::vec4 auxiliar = glm::vec4(1,1,1,1);
@@ -623,17 +623,14 @@ int main(int argc, char* argv[])
         float angulo=i*(2*PI/NUM_ARVORES);
         arvores[i].pos = glm::vec4(cos(angulo)*ARVORES_DIST, 0.0f, sin(angulo)*ARVORES_DIST, 1.0f);
         arvores[i].rotacao = rand()%6*(2*PI/6); //
-        arvores[i].aabb.minimo =  glm::vec3(arvores[i].pos[0] -0.5f +4.5f, 0, arvores[i].pos[2] -0.4f);
-        arvores[i].aabb.maximo =  glm::vec3(arvores[i].pos[0] +0.5f +4.5f, 2, arvores[i].pos[2] +0.4f);
+        //debugar //std::cout << "Rotacao numero " << i << ": " <<arvores[i].rotacao << ", Seno da rotacao: " << sin(arvores[i].rotacao) << ", Cosseno da rotacao: " << cos(arvores[i].rotacao)<< std::endl;
+        //arvores[i].aabb.minimo =  glm::vec3(arvores[i].pos[0] -0.2f +2.3*arvores[i].rotacao, 0, arvores[i].pos[2] -0.2f); offset pela colisao
+        arvores[i].aabb.minimo = glm::vec3(arvores[i].pos[0] -0.2f + cos(arvores[i].rotacao)*2.3f, 0, arvores[i].pos[2] -0.2f - sin(arvores[i].rotacao)*2.3f);
+        arvores[i].aabb.maximo =  glm::vec3(arvores[i].pos[0] +0.2f + cos(arvores[i].rotacao)*2.3f, 3, arvores[i].pos[2] +0.2f - sin(arvores[i].rotacao)*2.3f);
 
-        model = Matrix_Rotate_Y(arvores[i].rotacao) *
-                    Matrix_Translate(arvores[i].pos.x,0.0f,arvores[i].pos.z);
-        //auxiliar = arvores[i].pos;//arvores[i].pos*Matrix_Rotate_Y(arvores[i].rotacao);
-        //auxiliar = arvores[i].pos;
-        glm::vec4 auxiliar2 = model * auxiliar;
-        //cenario.push_back(arvores[i].aabb);
-        cenario.push_back(AABB(glm::vec3(auxiliar2[0] -0.4f, 0, auxiliar2[2] -0.4f), glm::vec3(auxiliar2[0] +0.4f, 3, auxiliar2[2] +0.4f)));
-        //std::cout << "Arvore numero " << i << ": (" <<auxiliar2[0] << ", " << auxiliar2[1] << ", " <<auxiliar2[2] << ", "<< auxiliar2[3] << ") " <<"Rotacao = "<<arvores[i].rotacao<< std::endl;
+
+        cenario.push_back(arvores[i].aabb);
+        //debugar//std::cout << "Arvore numero " << i << ": (" <<arvores[i].pos[0] << ", " << arvores[i].pos[1] << ", " <<arvores[i].pos[2] << ", "<< arvores[i].pos[3] << ") " <<"Rotacao = "<<arvores[i].rotacao<< std::endl;
 
     }
 
@@ -821,8 +818,8 @@ int main(int argc, char* argv[])
         {
             // TRONCO
             model = Matrix_Translate(arvores[i].pos.x,0.0f,arvores[i].pos.z)
-                  * Matrix_Scale(1.0f,1.0f,1.0f)
-                  * Matrix_Rotate_Y(arvores[i].rotacao);
+                * Matrix_Scale(1.0f,1.0f,1.0f)
+                * Matrix_Rotate_Y(arvores[i].rotacao);
             //std::cout << glm::value_ptr(model) << std::endl;
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, ARVORE);
@@ -1023,7 +1020,7 @@ int main(int argc, char* argv[])
             // Ligar/Desligar lanterna
             if(tecla_F_pressionada){
                 lanterna_ligada = false;
-                //std::cout << "Player Position: (" << jogador.pos[0] << ", " << jogador.pos[1] << ", " << jogador.pos[2] << ")" << std::endl;
+                std::cout << "Player Position: (" << jogador.pos[0] << ", " << jogador.pos[1] << ", " << jogador.pos[2] << ")" << std::endl;
             }
 
             else
@@ -1368,8 +1365,8 @@ int main(int argc, char* argv[])
         {
             // TRONCO
             model = Matrix_Translate(arvores[i].pos.x,0.0f,arvores[i].pos.z)
-                  * Matrix_Scale(1.0f,1.0f,1.0f)
-                  * Matrix_Rotate_Y(arvores[i].rotacao);
+                * Matrix_Scale(1.0f,1.0f,1.0f)
+                * Matrix_Rotate_Y(arvores[i].rotacao);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, ARVORE);
             glUniform1i(tronco_uniform, true);
