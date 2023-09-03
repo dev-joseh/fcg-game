@@ -1,11 +1,11 @@
-# Relatório do Trabalho de Computação Gráfica
+# A Floresta Amaldiçoada
 
-## Descrição do Projeto
--  O nosso trabalho consistiu no desenvolvimento de um empolgante jogo em primeira pessoa (FPS) ambientado em uma floresta amaldiçoada. Neste jogo, o protagonista tem como missão crucial consertar um carro avariado para escapar da sinistra floresta, que é habitada por ameaçadores monstros. Estes seres terríveis incluem sinistras caveiras voadoras, capazes de atravessar paredes e determinadas a eliminar o jogador.
+## Descrição
+-  Este jogo é o trabalho final para a cadeira de Fundamentos de Computação Gráfica, para o curso de graduação em Ciência da Computação, na UFRGS.
+-  O nosso trabalho consistiu no desenvolvimento de um empolgante jogo em primeira pessoa (FPS) ambientado em uma cabana abandonada, no meio de um bosque. Neste jogo, o protagonista tem como missão principal consertar um carro para escapar da sinistra floresta, que é habitada por fantasmas amaldiçoados. O jogador deverá se defender utilizando um revolver e sua lanterna, que torna os monstros vulneráveis por conta da luz.
 
-## Contribuições da Dupla
+## Créditos & Menções
 [Gabriel Carvalho Ávila]:
-  
 - Interpolação de Gouraud.
 - Implementação de curvas de Beziér. 
 - Implementação parcial da câmera look-at.
@@ -13,21 +13,28 @@
 - Instância de objetos como o monstro que fica rodeando a casa e instância das telas finais do jogo com mapeamento de textura.
 - Contribuição para a lógica do jogo.
 
-
 [José Henrique]:
-  
-- Implementação da câmera spot-light (lanterna).
+- Implementação da iluminação.
 - Implementação da câmera livre.
-- Implementação parcial da câmera look-at.
-- Animação da tela inicial do jogo que fica rodeando a casa com a camera look-at
-- Animação do recoil do revólver.
-- Animação de movimento baseado no tempo.
-- Criação de instâncias de objetos e aplicação de texturas, incluindo revólver, lanterna, cabine, chão, cenário, monstros, carro e árvores. Bem como as transformações geométricas necessárias desses objetos para o funcionamento correto do jogo.
-- Implementação da intersecção com o plano (chão).
+- Mapeamento de texturas, e mapas de textura complementar (normal-map, specular-map).
+- Rendering dos objetos e animações.
 - Contribuição para a lógica do jogo.
 
-## Uso de Ferramentas
-A dupla não fez uso de ferramentas como ChatGPT, Github Copilot, OpenAI Codex, etc.
+[Prof. Eduardo Gastal]:
+- Definição do projeto.
+- Apoio na aplicação dos conceitos estudados da cadeira.
+- Fornecimento de materiais base para o desenvolvimento do código.
+
+## Ferramentas e materiais utilizados
+Este jogo foi desenvolvido em linguagem C++, utilizando bibliotecas OpenGL (glfw, glm).
+Texturas e Objetos obtidos nos sites: 
+- https://texturehaven.com/textures/
+- https://hdrihaven.com/hdris/
+- https://www.turbosquid.com/Search/3D-Models/free
+Base do código fonte: Laboratórios da disciplina de Fundamentos em Computação Gráfica, ministrada pelo professor Eduardo Gastal.
+
+Além destes, utilizou-se ChatGPT 3.5 para debugging de código. A ferramenta foi bastante útil para pequenas correções e para dicas de implementação de algumas funções da biblioteca que poderiam ser mais
+fáceis.
 
 ## Processo de Desenvolvimento e conceitos de Computação Gráfica utilizados
 O desenvolvimento do jogo utilizou vários conceitos de computação gráfica vistos em aula.
@@ -46,7 +53,6 @@ Mapemento de texturas: Todos os objetos tiveram mapeamento de textura, na maiori
 ![Gameplay se movimentando e atirando](data/Gameplay/gameplay3.png)
 
 ![Gameplay consertando o carro](data/Gameplay/gameplay2.png)
-
 
 ## Manual de Utilização
 - Teclas W, A, S, D: movimentam o personagem pra frente, para a esquerda, para trás, pra direita respectivamente
@@ -129,3 +135,9 @@ compatibility issues."
 
 Caso você tenha problemas em executar o código deste projeto, tente atualizar o
 driver da sua placa de vídeo.
+
+--- Contribuições
+-----------------------------------
+
+Contribuições são bem-vindas! Sinta-se à vontade para corrigir bugs ou enviar solicitações de pull para melhorar o jogo.
+
