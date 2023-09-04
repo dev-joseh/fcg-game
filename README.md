@@ -64,6 +64,7 @@ Mapemento de texturas: Todos os objetos tiveram mapeamento de textura, na maiori
 - Tecla SPACE: Faz o personagem pular (ou começar o jogo se estiver no menu inicial)
 - Tecla SHIFT: Faz o personagem andar mais rápido
 - Tecla E: Conserta o carro se o personagem estiver próximo o suficiente
+- Gameplay: O jogador tem 3 vidas no total, e o objetivo do jogo é consertar o carro totalmente. Cada vez que o algum monstro atinge o jogador, ele perde uma vida, se o jogador ficar sem vida ele perde e o jogo acaba. Se ele conseguir consertar o carro até o final, ele ganha e o jogo acaba =)
 
 ## Compilação e Execução
 === Windows
